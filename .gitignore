@@ -37,3 +37,18 @@ Thumbs.db
 
 # Vite cache
 .vite/
+
+# Backend build
+backend/target/
+target/
+*.class
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+application-local.properties
