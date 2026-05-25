@@ -1,0 +1,27 @@
+package com.collide.backend.dto;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
+
+public record CollectionDetailDto(
+        UUID id,
+        UUID ownerId,
+        String ownerName,
+        String title,
+        String description,
+        String coverImageUrl,
+        String placeholderColor,
+        String coverTone,
+        CategoryDto category,
+        long itemsCount,
+        BigDecimal totalValue,
+        String totalValueLabel,
+        double averageRating,
+        long ratingCount,
+        long commentCount,
+        boolean favorite,
+        OffsetDateTime createdAt,
+        List<ItemSummaryDto> items
+) {}
