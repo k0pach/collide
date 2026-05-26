@@ -4,8 +4,10 @@ import { useDispatch, useSelector } from 'react-redux'
 import Avatar from '../components/Avatar.jsx'
 import Button from '../components/Button.jsx'
 import ItemVisual from '../components/ItemVisual.jsx'
+import { uploadImageFile } from '../services/api.js'
 import {
   addItemComment,
+  fetchItemDetail,
   selectCategories,
   selectCollections,
   selectCurrentUser,
@@ -28,12 +30,19 @@ function ItemPage() {
   const isLiked = useSelector(selectItemLikedByCurrentUser(itemId))
   const isFavorite = useSelector(selectItemFavoritedByCurrentUser(itemId))
   const categories = useSelector(selectCategories).filter((category) => category.id !== 'all')
-  const collections = useSelector(selectCollections).filter((collection) => collection.ownerId === currentUser.id)
+  const collections = useSelector(selectCollections).filter((collection) => currentUser && String(collection.ownerId) === String(currentUser.id))
   const [comment, setComment] = useState('')
   const [shareStatus, setShareStatus] = useState('')
   const [editForm, setEditForm] = useState(null)
+  const [editImageFile, setEditImageFile] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
-  const canEdit = item?.ownerId === currentUser.id
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+  const canEdit = currentUser && item?.ownerId === currentUser.id
+
+  useEffect(() => {
+    if (itemId) dispatch(fetchItemDetail(itemId))
+  }, [dispatch, itemId])
 
   useEffect(() => {
     if (!item) return
@@ -48,6 +57,7 @@ function ItemPage() {
       imageUrl: item.imageUrl || '',
       placeholderColor: item.placeholderColor || '#FB8500',
     })
+    setEditImageFile(null)
     setIsEditing(false)
   }, [item?.id])
 
@@ -56,7 +66,7 @@ function ItemPage() {
       <main className="item-page">
         <section className="item-detail item-detail--missing">
           <h1>Предмет не найден</h1>
-          <p>Возможно, ссылка устарела или предмет был удалён.</p>
+          <p>Возможно, ссылка устарела, предмет был удалён или backend ещё загружает данные.</p>
           <Link to="/">Вернуться на главную</Link>
         </section>
       </main>
@@ -68,20 +78,44 @@ function ItemPage() {
   const handleEditImageChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    setEditImageFile(file)
     const objectUrl = URL.createObjectURL(file)
     updateEditField('imageUrl', objectUrl)
   }
 
-  const submitEditForm = (event) => {
+  const submitEditForm = async (event) => {
     event.preventDefault()
-    dispatch(updateItem({ id: item.id, ...editForm }))
-    setIsEditing(false)
+    setIsSaving(true)
+    setError('')
+
+    try {
+      let imageUrl = editForm.imageUrl
+      if (editImageFile) {
+        try {
+          const upload = await uploadImageFile(editImageFile)
+          imageUrl = upload?.url || imageUrl
+        } catch {
+          // оставляем выбранное изображение до повторной попытки
+        }
+      }
+      await dispatch(updateItem({ id: item.id, ...editForm, imageUrl })).unwrap()
+      setIsEditing(false)
+    } catch (requestError) {
+      setError(String(requestError || 'Не удалось сохранить предмет'))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const submitComment = (event) => {
+  const submitComment = async (event) => {
     event.preventDefault()
-    dispatch(addItemComment({ itemId: item.id, text: comment }))
-    setComment('')
+    if (!comment.trim()) return
+    try {
+      await dispatch(addItemComment({ itemId: item.id, text: comment })).unwrap()
+      setComment('')
+    } catch (requestError) {
+      setError(String(requestError || 'Не удалось добавить комментарий'))
+    }
   }
 
   const scrollToComments = () => {
@@ -101,6 +135,8 @@ function ItemPage() {
       setShareStatus(link)
     }
   }
+
+  const commentsCount = item.comments?.length || item.commentsCount || 0
 
   return (
     <main className="item-page">
@@ -126,7 +162,7 @@ function ItemPage() {
             <Avatar tone="orange" size="sm" label={item.ownerName} />
             <div>
               <span>Владелец</span>
-              <Link to={item.ownerId === currentUser.id ? '/profile/collections' : `/users/${item.ownerId}/collections`}>
+              <Link to={currentUser && item.ownerId === currentUser.id ? '/profile/collections' : `/users/${item.ownerId}/collections`}>
                 {item.ownerName} {item.ownerHandle}
               </Link>
             </div>
@@ -139,11 +175,12 @@ function ItemPage() {
             <Button variant={isFavorite ? 'secondary' : 'ghost'} onClick={() => dispatch(toggleFavoriteItem(item.id))}>
               {isFavorite ? 'В избранном' : 'В избранное'}
             </Button>
-            <Button variant="ghost" onClick={scrollToComments}>Комментарии · {item.comments?.length || 0}</Button>
+            <Button variant="ghost" onClick={scrollToComments}>Комментарии · {commentsCount}</Button>
             <Button variant="ghost" onClick={shareItem}>Поделиться</Button>
             {canEdit && <Button variant="secondary" onClick={() => setIsEditing((value) => !value)}>{isEditing ? 'Отменить редактирование' : 'Редактировать'}</Button>}
           </div>
           {shareStatus && <p className="share-status">{shareStatus}</p>}
+          {error && <p className="form-error">{error}</p>}
         </div>
       </section>
 
@@ -222,7 +259,7 @@ function ItemPage() {
             </label>
 
             <div className="form-grid__actions">
-              <Button variant="primary" type="submit">Сохранить изменения</Button>
+              <Button variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Сохранение...' : 'Сохранить изменения'}</Button>
             </div>
           </form>
         </section>
@@ -234,7 +271,7 @@ function ItemPage() {
       </section>
 
       <section className="comments-card" ref={commentsRef} id="comments">
-        <h2>Комментарии · {item.comments?.length || 0}</h2>
+        <h2>Комментарии · {commentsCount}</h2>
         <form className="comment-form" onSubmit={submitComment}>
           <textarea
             value={comment}
@@ -246,8 +283,8 @@ function ItemPage() {
         </form>
 
         <div className="comments-list">
-          {item.comments.length === 0 && <p className="empty-note">Комментариев пока нет. Станьте первым.</p>}
-          {item.comments.map((entry) => (
+          {(item.comments || []).length === 0 && <p className="empty-note">Комментариев пока нет. Станьте первым.</p>}
+          {(item.comments || []).map((entry) => (
             <article className="comment" key={entry.id}>
               <Avatar tone="cream" size="xs" label={entry.authorName} />
               <div>

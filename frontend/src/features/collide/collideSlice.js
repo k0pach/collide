@@ -1,703 +1,804 @@
-import {createSelector, createSlice} from '@reduxjs/toolkit'
+import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit'
+import {
+  authApi,
+  categoriesApi,
+  chatsApi,
+  clearAuthSession,
+  collectionsApi,
+  favoritesApi,
+  getStoredToken,
+  getStoredUser,
+  itemsApi,
+  saveAuthSession,
+  usersApi,
+} from '../../services/api.js'
 
-const placeholderPalette = [
-    '#FD3E3E',
-    '#FB8500',
-    '#FFB703',
-    '#F3D5B5',
-    '#BC8A5F',
-    '#A47148',
-    '#6F4518',
+const placeholderPalette = ['#FD3E3E', '#FB8500', '#FFB703', '#F3D5B5', '#BC8A5F', '#A47148', '#6F4518']
+
+const defaultCategories = [
+  { id: 'all', slug: 'all', title: 'Все категории', sortOrder: 0 },
+  { id: 'figures', slug: 'figures', title: 'Фигурки', sortOrder: 10 },
+  { id: 'coins', slug: 'coins', title: 'Монеты', sortOrder: 20 },
+  { id: 'records', slug: 'records', title: 'Пластинки', sortOrder: 30 },
+  { id: 'books', slug: 'books', title: 'Книги', sortOrder: 40 },
+  { id: 'watches', slug: 'watches', title: 'Часы', sortOrder: 50 },
+  { id: 'retro_tech', slug: 'retro_tech', title: 'Ретро-техника', sortOrder: 60 },
+  { id: 'table_games', slug: 'table_games', title: 'Настольные игры', sortOrder: 70 },
+  { id: 'minerals', slug: 'minerals', title: 'Минералы', sortOrder: 80 },
 ]
 
-const categories = [
-    {id: 'all', title: 'Все категории'},
-    {id: 'figures', title: 'Фигурки'},
-    {id: 'coins', title: 'Монеты'},
-    {id: 'vinyl', title: 'Пластинки'},
-    {id: 'books', title: 'Книги'},
-    {id: 'watches', title: 'Часы'},
-    {id: 'retro', title: 'Ретро-техника'},
-    {id: 'boardgames', title: 'Настольные игры'},
-    {id: 'minerals', title: 'Минералы'},
-]
-
-const users = [
-    {
-        id: 'u1',
-        name: 'JesseYo',
-        handle: '@heisenberg',
-        status: 'Заходил недавно',
-        avatarTone: 'orange',
-        isCurrent: true,
-        about: 'Коллекционирую винил, фигурки и редкие издания комиксов.',
-        rating: 4.8,
-        reviews: 18,
-        followersBy: ['u2', 'u3', 'u4', 'u5', 'u6'],
-    },
-    {
-        id: 'u2',
-        name: 'Mr. White',
-        handle: '@whitecollector',
-        status: 'Заходил недавно',
-        avatarTone: 'cream',
-        about: 'Собираю монеты, минералы и редкие предметы ретро-техники.',
-        rating: 4.9,
-        reviews: 31,
-        followersBy: ['u1', 'u3', 'u4', 'u6', 'u7', 'u8', 'u9'],
-    },
-]
-
-const collections = [
-    {
-        id: 'c1',
-        ownerId: 'u1',
-        title: 'Ретро-фигурки',
-        category: 'figures',
-        description: 'Серия фигурок из игр, сериалов и старых промо-наборов.',
-        coverTone: 'red',
-        coverImageUrl: '',
-        placeholderColor: '#FD3E3E',
-        popularity: 94,
-        createdAt: 4,
-        ratings: [{userId: 'u2', value: 5}],
-        comments: [
-            {
-                id: 'cc1',
-                authorId: 'u2',
-                authorName: 'Mr. White',
-                text: 'Хорошая подборка фигурок, особенно космонавт.',
-                time: '11:30'
-            },
-        ],
-        favoritedBy: [],
-    },
-    {
-        id: 'c2',
-        ownerId: 'u1',
-        title: 'Винил 80-х',
-        category: 'vinyl',
-        description: 'Пластинки с тёплым звучанием, яркими обложками и историей.',
-        coverTone: 'orange',
-        coverImageUrl: '',
-        placeholderColor: '#FB8500',
-        popularity: 88,
-        createdAt: 3,
-        ratings: [{userId: 'u2', value: 4}],
-        comments: [],
-        favoritedBy: ['u2'],
-    },
-    {
-        id: 'c3',
-        ownerId: 'u1',
-        title: 'Комиксы',
-        category: 'books',
-        description: 'Выпуски в мягкой и твёрдой обложке, часть открыта для обмена.',
-        coverTone: 'cream',
-        coverImageUrl: '',
-        placeholderColor: '#F3D5B5',
-        popularity: 76,
-        createdAt: 2,
-        ratings: [{userId: 'u2', value: 5}],
-        comments: [],
-        favoritedBy: [],
-    },
-    {
-        id: 'c4',
-        ownerId: 'u2',
-        title: 'Монеты США',
-        category: 'coins',
-        description: 'Нумизматическая коллекция с описанием состояния и редкости.',
-        coverTone: 'brown',
-        coverImageUrl: '',
-        placeholderColor: '#A47148',
-        popularity: 98,
-        createdAt: 1,
-        ratings: [{userId: 'u1', value: 5}],
-        comments: [
-            {
-                id: 'cc2',
-                authorId: 'u1',
-                authorName: 'JesseYo',
-                text: 'Добавил в избранное, монеты выглядят отлично.',
-                time: '15:44'
-            },
-        ],
-        favoritedBy: ['u1'],
-    },
-]
-
-const items = [
-    {
-        id: 'i1',
-        ownerId: 'u1',
-        collectionId: 'c1',
-        title: 'Фигурка космонавта',
-        category: 'figures',
-        status: 'exchange',
-        statusLabel: 'Для обмена',
-        price: '4 500 ₽',
-        description: 'Фигурка в хорошем состоянии.',
-        fullDescription:
-            'Фигурка космонавта из лимитированной серии. Состояние хорошее: есть небольшие следы хранения на упаковке, сама фигурка без повреждений. Подходит для обмена на винил или ретро-технику.',
-        imageTone: 'red',
-        imageUrl: '',
-        placeholderColor: '#FD3E3E',
-        popularity: 71,
-        createdAt: 6,
-        likes: 12,
-        likedBy: [],
-        favoritedBy: [],
-        comments: [
-            {
-                id: 'cm1',
-                authorId: 'u2',
-                authorName: 'Mr. White',
-                text: 'Очень крутая фигурка, выглядит как редкий выпуск.',
-                time: '12:20'
-            },
-        ],
-    },
-    {
-        id: 'i2',
-        ownerId: 'u1',
-        collectionId: 'c2',
-        title: 'Пластинка Synth Night',
-        category: 'vinyl',
-        status: 'collection',
-        statusLabel: 'В коллекции',
-        price: '2 900 ₽',
-        description: 'Редкое переиздание.',
-        fullDescription:
-            'Переиздание с плотной обложкой и приятным тёплым звучанием. Пластинка хранится во внутреннем антистатическом конверте, проигрывалась несколько раз.',
-        imageTone: 'orange',
-        imageUrl: '',
-        placeholderColor: '#FB8500',
-        popularity: 62,
-        createdAt: 5,
-        likes: 8,
-        likedBy: ['u1'],
-        favoritedBy: ['u1'],
-        comments: [],
-    },
-    {
-        id: 'i3',
-        ownerId: 'u1',
-        collectionId: 'c3',
-        title: 'Комикс выпуск #12',
-        category: 'books',
-        status: 'sale',
-        statusLabel: 'В продаже',
-        price: '1 200 ₽',
-        description: 'Сохранность VF, без повреждений.',
-        fullDescription:
-            'Комикс из личной коллекции. Обложка без серьёзных заломов, страницы чистые, корешок не повреждён. Возможна продажа или обмен на близкий по редкости выпуск.',
-        imageTone: 'cream',
-        imageUrl: '',
-        placeholderColor: '#F3D5B5',
-        popularity: 43,
-        createdAt: 4,
-        likes: 5,
-        likedBy: [],
-        favoritedBy: [],
-        comments: [],
-    },
-    {
-        id: 'i4',
-        ownerId: 'u1',
-        collectionId: 'c2',
-        title: 'Винил Neon City',
-        category: 'vinyl',
-        status: 'archive',
-        statusLabel: 'В архиве',
-        price: '3 600 ₽',
-        description: 'С постером и оригинальной вставкой.',
-        fullDescription:
-            'Архивный предмет коллекции. В комплекте оригинальная вставка и постер. На обмен пока не выставляется, добавлена в профиль для демонстрации коллекции.',
-        imageTone: 'brown',
-        imageUrl: '',
-        placeholderColor: '#A47148',
-        popularity: 83,
-        createdAt: 3,
-        likes: 14,
-        likedBy: [],
-        favoritedBy: [],
-        comments: [],
-    },
-    {
-        id: 'i5',
-        ownerId: 'u2',
-        collectionId: 'c4',
-        title: 'Серебряная монета 1964',
-        category: 'coins',
-        status: 'sale',
-        statusLabel: 'В продаже',
-        price: '6 800 ₽',
-        description: 'Монета с историей владения.',
-        fullDescription:
-            'Серебряная монета 1964 года. В карточке зафиксированы состояние, примерная стоимость и история владения. Предмет открыт для просмотра другими коллекционерами.',
-        imageTone: 'blue',
-        imageUrl: '',
-        placeholderColor: '#FFB703',
-        popularity: 93,
-        createdAt: 2,
-        likes: 21,
-        likedBy: ['u1'],
-        favoritedBy: ['u1'],
-        comments: [
-            {
-                id: 'cm2',
-                authorId: 'u1',
-                authorName: 'JesseYo',
-                text: 'Интересный экземпляр, добавил в избранное.',
-                time: '15:44'
-            },
-        ],
-    },
-    {
-        id: 'i6',
-        ownerId: 'u2',
-        collectionId: '',
-        title: 'Минерал аметист',
-        category: 'minerals',
-        status: 'exchange',
-        statusLabel: 'Для обмена',
-        price: '900 ₽',
-        description: 'Небольшой образец для обмена.',
-        fullDescription:
-            'Небольшой образец аметиста. Подойдёт для начинающей коллекции минералов. Рассматривается обмен на монеты или ретро-аксессуары.',
-        imageTone: 'cream',
-        imageUrl: '',
-        placeholderColor: '#BC8A5F',
-        popularity: 29,
-        createdAt: 1,
-        likes: 3,
-        likedBy: [],
-        favoritedBy: [],
-        comments: [],
-    },
-]
-
-const dialogs = [
-    {
-        id: 'd1',
-        userId: 'u2',
-        name: 'Mr. White',
-        preview: '*Sent you a photo*',
-        unread: 1,
-        avatarTone: 'cream',
-        messages: [
-            {id: 'm1', from: 'u2', text: 'Привет! Посмотришь мою коллекцию монет?', time: '12:20'},
-            {id: 'm2', from: 'u1', text: 'Да, отправь фото редких экземпляров.', time: '12:22'},
-            {id: 'm3', from: 'u2', text: 'Отправил фото серебряной монеты.', time: '12:24'},
-        ],
-    },
-    {
-        id: 'd2',
-        userId: 'u3',
-        name: 'Mike “Waltuh”',
-        preview: 'Есть интересный комикс для обмена.',
-        unread: 1,
-        avatarTone: 'orange',
-        messages: [
-            {id: 'm4', from: 'u3', text: 'Есть интересный комикс для обмена.', time: '13:10'},
-        ],
-    },
-    {
-        id: 'd3',
-        userId: 'u4',
-        name: 'Skinny P',
-        preview: 'Скинь фото пластинки, пожалуйста.',
-        unread: 1,
-        avatarTone: 'red',
-        messages: [
-            {id: 'm5', from: 'u4', text: 'Скинь фото пластинки, пожалуйста.', time: '14:05'},
-        ],
-    },
-    {
-        id: 'd4',
-        userId: 'u5',
-        name: 'Badger',
-        preview: 'Можно забронировать фигурку?',
-        unread: 1,
-        avatarTone: 'brown',
-        messages: [
-            {id: 'm6', from: 'u5', text: 'Можно забронировать фигурку?', time: '16:18'},
-        ],
-    },
-    {
-        id: 'd5',
-        userId: 'u6',
-        name: 'Jane',
-        preview: 'Спасибо за обмен!',
-        unread: 0,
-        avatarTone: 'cream',
-        messages: [
-            {id: 'm7', from: 'u6', text: 'Спасибо за обмен!', time: '17:00'},
-        ],
-    },
-]
-
-const statusLabels = {
-    collection: 'В коллекции',
-    sale: 'В продаже',
-    exchange: 'Для обмена',
-    archive: 'В архиве',
-}
+const storedToken = getStoredToken()
+const storedUser = getStoredUser()
+const normalizedStoredUser = storedUser ? normalizeUser(storedUser) : null
 
 const initialState = {
-    categories,
-    users,
-    collections,
-    items,
-    dialogs,
-    currentUserId: 'u1',
-    selectedCategory: 'all',
-    searchQuery: '',
-    profileSearchQuery: '',
-    chatSearchQuery: '',
-    activeDialogId: 'd1',
-    isAddItemModalOpen: false,
-    isAddCollectionModalOpen: false,
+  categories: defaultCategories,
+  users: normalizedStoredUser ? [normalizedStoredUser] : [],
+  collections: [],
+  items: [],
+  dialogs: [],
+  currentUserId: normalizedStoredUser?.id || null,
+  profileStatsByUserId: {},
+  favorites: { collections: [], items: [] },
+  selectedCategory: 'all',
+  searchQuery: '',
+  profileSearchQuery: '',
+  chatSearchQuery: '',
+  activeDialogId: null,
+  isAddItemModalOpen: false,
+  isAddCollectionModalOpen: false,
+  auth: {
+    token: storedToken,
+    user: normalizedStoredUser,
+    status: 'idle',
+    error: null,
+  },
+  apiStatus: 'idle',
+  apiError: null,
+  usingFallback: false,
+}
+
+function normalizeUser(user = {}) {
+  return {
+    id: String(user.id || user.uuid || 'u1'),
+    username: user.username || String(user.handle || '@user').replace('@', ''),
+    name: user.name || user.displayName || 'Пользователь',
+    displayName: user.displayName || user.name || 'Пользователь',
+    handle: user.handle || `@${user.username || 'user'}`,
+    status: user.status || user.statusMessage || 'Заходил недавно',
+    avatarUrl: user.avatarUrl || '',
+    avatarTone: user.avatarTone || 'orange',
+    about: user.about || user.bio || '',
+    following: Boolean(user.following),
+    followersBy: user.followersBy || [],
+  }
+}
+
+function normalizeCategory(category = {}) {
+  const slug = category.slug || category.id || category.title || ''
+  return {
+    uuid: category.uuid || category.id || slug,
+    id: slug,
+    slug,
+    title: category.title || slug,
+    sortOrder: category.sortOrder || 0,
+  }
+}
+
+function normalizeComment(comment = {}) {
+  const date = comment.createdAt ? new Date(comment.createdAt) : null
+  return {
+    id: String(comment.id || makeId('comment')),
+    authorId: String(comment.authorId || ''),
+    authorName: comment.authorName || 'Пользователь',
+    authorHandle: comment.authorHandle || '',
+    text: comment.text || comment.body || '',
+    body: comment.body || comment.text || '',
+    time: date && !Number.isNaN(date.getTime())
+        ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        : comment.time || '',
+    createdAt: comment.createdAt || null,
+  }
+}
+
+function normalizeCollection(collection = {}, currentUserId = '') {
+  const category = collection.category ? normalizeCategory(collection.category) : null
+  const id = String(collection.id || makeId('c'))
+  const comments = Array.isArray(collection.comments) ? collection.comments.map(normalizeComment) : []
+  const favorite = Boolean(collection.favorite || collection.isFavorite)
+
+  return {
+    id,
+    ownerId: String(collection.ownerId || ''),
+    ownerName: collection.ownerName || 'Пользователь',
+    ownerHandle: collection.ownerHandle || '',
+    title: collection.title || 'Без названия',
+    category: collection.categorySlug || category?.slug || collection.category || 'figures',
+    description: collection.description || '',
+    coverTone: collection.coverTone || 'orange',
+    coverImageUrl: collection.coverImageUrl || '',
+    placeholderColor: collection.placeholderColor || getWarmPlaceholderColor(id),
+    popularity: Number(collection.popularity || collection.itemsCount || collection.ratingCount || 0),
+    createdAt: timestampValue(collection.createdAt),
+    createdAtRaw: collection.createdAt || null,
+    itemsCount: Number(collection.itemsCount || 0),
+    totalValue: Number(collection.totalValue || collection.totalPriceAmount || 0),
+    totalValueLabel: collection.totalValueLabel || formatMoney(collection.totalValue || 0),
+    averageRating: Number(collection.averageRating || 0),
+    ratingsCount: Number(collection.ratingsCount || collection.ratingCount || 0),
+    commentsCount: Number(collection.commentCount || collection.commentsCount || comments.length),
+    comments,
+    favoritedBy: favorite && currentUserId ? [currentUserId] : collection.favoritedBy || [],
+    isFavorite: favorite,
+    items: Array.isArray(collection.items) ? collection.items.map((item) => normalizeItem(item, currentUserId)) : [],
+  }
+}
+
+function normalizeItem(item = {}, currentUserId = '') {
+  const category = item.category ? normalizeCategory(item.category) : null
+  const id = String(item.id || makeId('i'))
+  const comments = Array.isArray(item.comments) ? item.comments.map(normalizeComment) : []
+  const liked = Boolean(item.liked || item.isLiked)
+  const favorite = Boolean(item.favorite || item.isFavorite)
+  const shortDescription = item.shortDescription || item.description || ''
+
+  return {
+    id,
+    ownerId: String(item.ownerId || ''),
+    ownerName: item.ownerName || item.owner?.name || 'Пользователь',
+    ownerHandle: item.ownerHandle || item.owner?.handle || '',
+    collectionId: item.collectionId ? String(item.collectionId) : '',
+    collectionTitle: item.collectionTitle || 'Без коллекции',
+    title: item.title || 'Без названия',
+    category: item.categorySlug || category?.slug || item.category || 'figures',
+    status: item.status || 'collection',
+    statusLabel: item.statusLabel || statusLabels[item.status] || 'В коллекции',
+    price: item.price || formatMoney(item.priceAmount),
+    priceAmount: Number(item.priceAmount || parsePriceAmount(item.price || 0) || 0),
+    description: String(shortDescription).slice(0, 60),
+    shortDescription: String(shortDescription).slice(0, 60),
+    fullDescription: item.fullDescription || item.description || '',
+    imageTone: item.imageTone || 'orange',
+    imageUrl: item.imageUrl || '',
+    placeholderColor: item.placeholderColor || getWarmPlaceholderColor(id),
+    popularity: Number(item.popularity || item.likesCount || item.likes || 0),
+    createdAt: timestampValue(item.createdAt),
+    createdAtRaw: item.createdAt || null,
+    likes: Number(item.likesCount ?? item.likes ?? 0),
+    commentsCount: Number(item.commentsCount || comments.length),
+    likedBy: liked && currentUserId ? [currentUserId] : item.likedBy || [],
+    favoritedBy: favorite && currentUserId ? [currentUserId] : item.favoritedBy || [],
+    comments,
+    owner: item.owner ? normalizeUser(item.owner) : null,
+  }
+}
+
+function normalizeDialog(dialog = {}) {
+  return {
+    id: String(dialog.id || makeId('d')),
+    userId: String(dialog.companionId || dialog.userId || ''),
+    companionId: String(dialog.companionId || dialog.userId || ''),
+    name: dialog.name || 'Диалог',
+    handle: dialog.handle || '',
+    preview: dialog.preview || 'Нет сообщений',
+    unread: Number(dialog.unread || 0),
+    avatarTone: dialog.avatarTone || 'cream',
+    updatedAt: timestampValue(dialog.updatedAt),
+    updatedAtRaw: dialog.updatedAt || null,
+    messages: Array.isArray(dialog.messages) ? dialog.messages.map(normalizeMessage) : [],
+  }
+}
+
+function normalizeMessage(message = {}) {
+  const date = message.createdAt ? new Date(message.createdAt) : null
+  return {
+    id: String(message.id || makeId('m')),
+    chatId: String(message.chatId || ''),
+    from: String(message.senderId || message.from || ''),
+    senderId: String(message.senderId || message.from || ''),
+    senderName: message.senderName || '',
+    text: message.text || message.body || '',
+    body: message.body || message.text || '',
+    mine: Boolean(message.mine),
+    time: date && !Number.isNaN(date.getTime())
+        ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        : message.time || '',
+    createdAt: timestampValue(message.createdAt),
+  }
+}
+
+function normalizeStats(stats = {}) {
+  return {
+    collectionAverageRating: Number(stats.collectionAverageRating || 0) || '—',
+    totalItemLikes: Number(stats.totalItemLikes || 0),
+    followersCount: Number(stats.followersCount || 0),
+    followingCount: Number(stats.followingCount || 0),
+    totalCollectionsValue: Number(stats.totalCollectionsValue || 0),
+    totalCollectionsValueLabel: stats.totalCollectionsValueLabel || formatMoney(stats.totalCollectionsValue || 0),
+    collectionsCount: Number(stats.collectionsCount || 0),
+    itemsCount: Number(stats.itemsCount || 0),
+  }
+}
+
+const statusLabels = {
+  collection: 'В коллекции',
+  sale: 'В продаже',
+  exchange: 'Для обмена',
+  archive: 'В архиве',
 }
 
 const makeId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
-const getWarmPlaceholderColor = () => placeholderPalette[Math.floor(Math.random() * placeholderPalette.length)]
 const normalize = (value) => String(value || '').trim().toLowerCase()
-const trimShortDescription = (value) => String(value || '').trim().slice(0, 60)
+const timestampValue = (value) => {
+  if (!value) return 0
+  if (typeof value === 'number') return value
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+const parsePriceAmount = (value) => Number(String(value || '').replace(',', '.').replace(/[^0-9.]/g, '') || 0)
+const formatMoney = (value) => `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`
+const getWarmPlaceholderColor = (seed = '') => placeholderPalette[Math.abs(String(seed).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % placeholderPalette.length]
 
-const getCollectionItemsCount = (collectionId, state) => state.collide.items.filter((item) => item.collectionId === collectionId).length
-const getCollectionItems = (collectionId, state) => state.collide.items.filter((item) => item.collectionId === collectionId)
-const getUser = (userId, state) => state.collide.users.find((user) => user.id === userId)
-const getCollectionAverageRating = (collection) => {
-    if (!collection?.ratings?.length) return 0
-    const total = collection.ratings.reduce((sum, rating) => sum + Number(rating.value || 0), 0)
-    return Number((total / collection.ratings.length).toFixed(1))
+function upsertById(list, entity) {
+  const id = String(entity.id)
+  const index = list.findIndex((entry) => String(entry.id) === id)
+  if (index >= 0) {
+    list[index] = { ...list[index], ...entity }
+  } else {
+    list.unshift(entity)
+  }
 }
 
-const getUserCollectionsAverageRating = (userId, state) => {
-    const userCollections = state.collide.collections.filter((collection) => collection.ownerId === userId)
-    const ratings = userCollections.flatMap((collection) => collection.ratings || [])
-    if (!ratings.length) return 0
-    const total = ratings.reduce((sum, rating) => sum + Number(rating.value || 0), 0)
-    return Number((total / ratings.length).toFixed(1))
+function removeById(list, id) {
+  return list.filter((entry) => String(entry.id) !== String(id))
 }
 
-const parsePriceValue = (value) => {
-    const numeric = String(value || '').replace(/[^0-9]/g, '')
-    return numeric ? Number(numeric) : 0
+function toCollectionRequest(payload = {}) {
+  return {
+    title: payload.title || 'Новая коллекция',
+    description: payload.description || '',
+    category: payload.category || payload.categorySlug || null,
+    categorySlug: payload.categorySlug || payload.category || null,
+    coverImageUrl: payload.coverImageUrl || '',
+  }
 }
 
-const formatPriceValue = (value) => `${Number(value || 0).toLocaleString('ru-RU')} ₽`
-
-const getUserItemLikesCount = (userId, state) => state.collide.items
-    .filter((item) => item.ownerId === userId)
-    .reduce((sum, item) => sum + Number(item.likes || 0), 0)
-
-const getUserFollowersCount = (userId, state) => {
-    const user = getUser(userId, state)
-    return user?.followersBy?.length || 0
+function toItemRequest(payload = {}) {
+  const priceAmount = payload.priceAmount ?? parsePriceAmount(payload.price)
+  return {
+    title: payload.title || 'Новый предмет',
+    collectionId: payload.collectionId || null,
+    category: payload.category || payload.categorySlug || null,
+    categorySlug: payload.categorySlug || payload.category || null,
+    status: payload.status || 'collection',
+    priceAmount: priceAmount ? Number(priceAmount) : null,
+    price: payload.price || '',
+    description: String(payload.description || payload.shortDescription || '').slice(0, 60),
+    shortDescription: String(payload.shortDescription || payload.description || '').slice(0, 60),
+    fullDescription: payload.fullDescription || payload.description || '',
+    imageUrl: payload.imageUrl || '',
+  }
 }
 
-const getUserCollectionsTotalValue = (userId, state) => {
-    const collectionIds = state.collide.collections
-        .filter((collection) => collection.ownerId === userId)
-        .map((collection) => collection.id)
+async function loadCommonData() {
+  const token = getStoredToken()
+  const hasSession = Boolean(token)
 
-    return state.collide.items
-        .filter((item) => collectionIds.includes(item.collectionId))
-        .reduce((sum, item) => sum + parsePriceValue(item.price), 0)
+  const [categories, collections, items] = await Promise.all([
+    categoriesApi.list(),
+    collectionsApi.list(),
+    itemsApi.list(),
+  ])
+
+  const currentUser = hasSession
+      ? normalizeUser(await authApi.me())
+      : null
+  const currentUserId = currentUser?.id || null
+
+  const [chats, favorites, stats] = hasSession && currentUserId
+      ? await Promise.all([
+        chatsApi.list().catch(() => []),
+        favoritesApi.list().catch(() => ({ collections: [], items: [] })),
+        usersApi.stats(currentUserId).catch(() => null),
+      ])
+      : [[], { collections: [], items: [] }, null]
+
+  const normalizedCollections = collections.map((collection) => normalizeCollection(collection, currentUserId))
+  const normalizedItems = items.map((item) => normalizeItem(item, currentUserId))
+  const normalizedFavorites = {
+    collections: (favorites.collections || []).map((collection) => ({ ...normalizeCollection(collection, currentUserId), isFavorite: true, favoritedBy: currentUserId ? [currentUserId] : [] })),
+    items: (favorites.items || []).map((item) => ({ ...normalizeItem(item, currentUserId), isFavorite: true, favoritedBy: currentUserId ? [currentUserId] : [] })),
+  }
+  const favoriteCollectionIds = new Set(normalizedFavorites.collections.map((collection) => String(collection.id)))
+  const favoriteItemIds = new Set(normalizedFavorites.items.map((item) => String(item.id)))
+
+  normalizedCollections.forEach((collection) => {
+    if (favoriteCollectionIds.has(String(collection.id)) && currentUserId) collection.favoritedBy = [currentUserId]
+  })
+  normalizedItems.forEach((item) => {
+    if (favoriteItemIds.has(String(item.id)) && currentUserId) item.favoritedBy = [currentUserId]
+  })
+
+  const normalizedDialogs = hasSession
+      ? await Promise.all(chats.map(async (dialog) => {
+        const normalizedDialog = normalizeDialog(dialog)
+        try {
+          const messages = await chatsApi.messages(normalizedDialog.id)
+          normalizedDialog.messages = messages.map(normalizeMessage)
+        } catch {
+          normalizedDialog.messages = []
+        }
+        return normalizedDialog
+      }))
+      : []
+
+  return {
+    categories: [{ id: 'all', slug: 'all', title: 'Все категории', sortOrder: 0 }, ...categories.map(normalizeCategory)],
+    currentUser,
+    collections: normalizedCollections,
+    items: normalizedItems,
+    dialogs: normalizedDialogs,
+    favorites: normalizedFavorites,
+    stats: stats ? normalizeStats(stats) : null,
+  }
 }
 
-const getUserProfileMetrics = (userId, state) => {
-    const totalCollectionsValue = getUserCollectionsTotalValue(userId, state)
-
-    return {
-        collectionAverageRating: getUserCollectionsAverageRating(userId, state),
-        totalItemLikes: getUserItemLikesCount(userId, state),
-        followersCount: getUserFollowersCount(userId, state),
-        totalCollectionsValue,
-        totalCollectionsValueLabel: formatPriceValue(totalCollectionsValue),
-    }
-}
-
-const enrichCollection = (collection, state) => {
-    const owner = getUser(collection.ownerId, state)
-    const averageRating = getCollectionAverageRating(collection)
-    return {
-        ...collection,
-        itemsCount: getCollectionItemsCount(collection.id, state),
-        ownerName: owner?.name || 'Пользователь',
-        ownerHandle: owner?.handle || '',
-        averageRating,
-        ratingsCount: collection.ratings?.length || 0,
-        commentsCount: collection.comments?.length || 0,
-        isFavorite: Boolean(collection.favoritedBy?.includes(state.collide.currentUserId)),
-    }
-}
-
-const enrichItem = (item, state) => {
-    const collection = state.collide.collections.find((entry) => entry.id === item.collectionId)
-    const owner = getUser(item.ownerId, state)
-    return {
-        ...item,
-        collectionTitle: collection?.title || 'Без коллекции',
-        collectionId: collection?.id || '',
-        ownerName: owner?.name || 'Пользователь',
-        ownerHandle: owner?.handle || '',
-        commentsCount: item.comments?.length || 0,
-        isFavorite: Boolean(item.favoritedBy?.includes(state.collide.currentUserId)),
-    }
-}
-
-const collideSlice = createSlice({
-    name: 'collide',
-    initialState,
-    reducers: {
-        setSelectedCategory(state, action) {
-            state.selectedCategory = action.payload
-        },
-        setSearchQuery(state, action) {
-            state.searchQuery = action.payload
-        },
-        setProfileSearchQuery(state, action) {
-            state.profileSearchQuery = action.payload
-        },
-        setChatSearchQuery(state, action) {
-            state.chatSearchQuery = action.payload
-        },
-        setActiveDialog(state, action) {
-            state.activeDialogId = action.payload
-            const dialog = state.dialogs.find((item) => item.id === action.payload)
-            if (dialog) dialog.unread = 0
-        },
-        openAddItemModal(state) {
-            state.isAddItemModalOpen = true
-        },
-        closeAddItemModal(state) {
-            state.isAddItemModalOpen = false
-        },
-        openAddCollectionModal(state) {
-            state.isAddCollectionModalOpen = true
-        },
-        closeAddCollectionModal(state) {
-            state.isAddCollectionModalOpen = false
-        },
-        addCollection(state, action) {
-            const payload = action.payload || {}
-            const title = payload.title?.trim() || 'Новая коллекция'
-            state.collections.unshift({
-                id: makeId('c'),
-                ownerId: state.currentUserId,
-                title,
-                category: payload.category || 'figures',
-                description: payload.description?.trim() || 'Описание коллекции можно будет изменить позднее.',
-                coverTone: 'custom',
-                coverImageUrl: payload.coverImageUrl || '',
-                placeholderColor: payload.placeholderColor || getWarmPlaceholderColor(),
-                popularity: 0,
-                createdAt: Date.now(),
-                ratings: [],
-                comments: [],
-                favoritedBy: [],
-            })
-            state.isAddCollectionModalOpen = false
-        },
-        updateCollection(state, action) {
-            const payload = action.payload || {}
-            const collection = state.collections.find((entry) => entry.id === payload.id)
-            if (!collection) return
-            if (payload.title !== undefined) collection.title = payload.title.trim() || collection.title
-            if (payload.description !== undefined) collection.description = payload.description.trim()
-            if (payload.category !== undefined) collection.category = payload.category || collection.category
-            if (payload.coverImageUrl !== undefined) collection.coverImageUrl = payload.coverImageUrl
-            if (payload.placeholderColor !== undefined) collection.placeholderColor = payload.placeholderColor || collection.placeholderColor
-        },
-        addItem(state, action) {
-            const payload = action.payload || {}
-            const collection = payload.collectionId ? state.collections.find((item) => item.id === payload.collectionId) : null
-            const status = payload.status || 'collection'
-            const shortDescription = trimShortDescription(payload.description) || 'Краткое описание будет добавлено позднее.'
-            state.items.unshift({
-                id: makeId('i'),
-                ownerId: state.currentUserId,
-                collectionId: collection?.id || '',
-                title: payload.title?.trim() || 'Новый предмет',
-                category: payload.category || collection?.category || 'figures',
-                status,
-                statusLabel: statusLabels[status],
-                price: payload.price?.trim() || '—',
-                description: shortDescription,
-                fullDescription: payload.fullDescription?.trim() || shortDescription,
-                imageTone: payload.imageTone || 'custom',
-                imageUrl: payload.imageUrl || '',
-                placeholderColor: payload.placeholderColor || getWarmPlaceholderColor(),
-                popularity: 0,
-                createdAt: Date.now(),
-                likes: 0,
-                likedBy: [],
-                favoritedBy: [],
-                comments: [],
-            })
-            state.isAddItemModalOpen = false
-        },
-        updateItem(state, action) {
-            const payload = action.payload || {}
-            const item = state.items.find((entry) => entry.id === payload.id)
-            if (!item) return
-            if (payload.title !== undefined) item.title = payload.title.trim() || item.title
-            if (payload.price !== undefined) item.price = payload.price.trim() || '—'
-            if (payload.description !== undefined) item.description = trimShortDescription(payload.description) || item.description
-            if (payload.fullDescription !== undefined) item.fullDescription = payload.fullDescription.trim() || item.description
-            if (payload.category !== undefined) item.category = payload.category || item.category
-            if (payload.collectionId !== undefined) item.collectionId = payload.collectionId || ''
-            if (payload.status !== undefined) {
-                item.status = payload.status
-                item.statusLabel = statusLabels[payload.status]
-            }
-            if (payload.imageUrl !== undefined) item.imageUrl = payload.imageUrl
-            if (payload.placeholderColor !== undefined) item.placeholderColor = payload.placeholderColor || item.placeholderColor
-        },
-        removeItemFromCollection(state, action) {
-            const item = state.items.find((entry) => entry.id === action.payload)
-            if (item) item.collectionId = ''
-        },
-        deleteItem(state, action) {
-            state.items = state.items.filter((entry) => entry.id !== action.payload)
-        },
-        setItemStatus(state, action) {
-            const item = state.items.find((entry) => entry.id === action.payload.id)
-            if (item) {
-                item.status = action.payload.status
-                item.statusLabel = statusLabels[action.payload.status]
-            }
-        },
-        toggleItemLike(state, action) {
-            const item = state.items.find((entry) => entry.id === action.payload)
-            if (!item) return
-            if (!Array.isArray(item.likedBy)) item.likedBy = []
-            const alreadyLiked = item.likedBy.includes(state.currentUserId)
-            if (alreadyLiked) {
-                item.likedBy = item.likedBy.filter((id) => id !== state.currentUserId)
-                item.likes = Math.max(0, item.likes - 1)
-            } else {
-                item.likedBy.push(state.currentUserId)
-                item.likes += 1
-            }
-        },
-        toggleFavoriteItem(state, action) {
-            const item = state.items.find((entry) => entry.id === action.payload)
-            if (!item) return
-            if (!Array.isArray(item.favoritedBy)) item.favoritedBy = []
-            if (item.favoritedBy.includes(state.currentUserId)) {
-                item.favoritedBy = item.favoritedBy.filter((id) => id !== state.currentUserId)
-            } else {
-                item.favoritedBy.push(state.currentUserId)
-            }
-        },
-        toggleFavoriteCollection(state, action) {
-            const collection = state.collections.find((entry) => entry.id === action.payload)
-            if (!collection) return
-            if (!Array.isArray(collection.favoritedBy)) collection.favoritedBy = []
-            if (collection.favoritedBy.includes(state.currentUserId)) {
-                collection.favoritedBy = collection.favoritedBy.filter((id) => id !== state.currentUserId)
-            } else {
-                collection.favoritedBy.push(state.currentUserId)
-            }
-        },
-        toggleFollowUser(state, action) {
-            const targetUserId = action.payload
-            if (!targetUserId || targetUserId === state.currentUserId) return
-            const user = state.users.find((entry) => entry.id === targetUserId)
-            if (!user) return
-            if (!Array.isArray(user.followersBy)) user.followersBy = []
-            if (user.followersBy.includes(state.currentUserId)) {
-                user.followersBy = user.followersBy.filter((id) => id !== state.currentUserId)
-            } else {
-                user.followersBy.push(state.currentUserId)
-            }
-        },
-        rateCollection(state, action) {
-            const collection = state.collections.find((entry) => entry.id === action.payload.collectionId)
-            if (!collection) return
-            const value = Math.min(5, Math.max(1, Number(action.payload.value || 1)))
-            if (!Array.isArray(collection.ratings)) collection.ratings = []
-            const existing = collection.ratings.find((rating) => rating.userId === state.currentUserId)
-            if (existing) {
-                existing.value = value
-            } else {
-                collection.ratings.push({userId: state.currentUserId, value})
-            }
-        },
-        addItemComment(state, action) {
-            const text = action.payload?.text?.trim()
-            if (!text) return
-            const item = state.items.find((entry) => entry.id === action.payload.itemId)
-            if (!item) return
-            const currentUser = state.users.find((user) => user.id === state.currentUserId)
-            item.comments.push({
-                id: makeId('cm'),
-                authorId: state.currentUserId,
-                authorName: currentUser?.name || 'Пользователь',
-                text,
-                time: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}),
-            })
-        },
-        addCollectionComment(state, action) {
-            const text = action.payload?.text?.trim()
-            if (!text) return
-            const collection = state.collections.find((entry) => entry.id === action.payload.collectionId)
-            if (!collection) return
-            const currentUser = state.users.find((user) => user.id === state.currentUserId)
-            collection.comments.push({
-                id: makeId('cc'),
-                authorId: state.currentUserId,
-                authorName: currentUser?.name || 'Пользователь',
-                text,
-                time: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}),
-            })
-        },
-        sendMessage(state, action) {
-            const text = action.payload?.text?.trim()
-            if (!text) return
-            const dialog = state.dialogs.find((item) => item.id === action.payload.dialogId)
-            if (!dialog) return
-            dialog.messages.push({
-                id: makeId('m'),
-                from: state.currentUserId,
-                text,
-                time: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}),
-            })
-            dialog.preview = text
-        },
-    },
+export const loadInitialData = createAsyncThunk('collide/loadInitialData', async (_, { rejectWithValue }) => {
+  try {
+    return await loadCommonData()
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || error.message || 'Backend недоступен')
+  }
 })
 
+export const loginUser = createAsyncThunk('collide/loginUser', async (payload, { rejectWithValue }) => {
+  try {
+    const response = await authApi.login(payload)
+    saveAuthSession(response)
+    const common = await loadCommonData()
+    return { ...response, ...common }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось войти')
+  }
+})
+
+export const registerUser = createAsyncThunk('collide/registerUser', async (payload, { rejectWithValue }) => {
+  try {
+    const response = await authApi.register(payload)
+    saveAuthSession(response)
+    const common = await loadCommonData()
+    return { ...response, ...common }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось зарегистрироваться')
+  }
+})
+
+export const updateUserProfile = createAsyncThunk('collide/updateUserProfile', async (payload, { getState, rejectWithValue }) => {
+  try {
+    let response = payload
+    if (usersApi.update) {
+      response = await usersApi.update(payload.id, payload).catch(() => payload)
+    } else if (authApi.updateProfile) {
+      response = await authApi.updateProfile(payload).catch(() => payload)
+    }
+
+    const existingUser = selectCurrentUser(getState())
+    return normalizeUser({
+      ...existingUser,
+      ...response,
+      name: payload.name || payload.displayName,
+      displayName: payload.name || payload.displayName,
+      about: payload.about,
+    })
+  } catch (error) {
+    return rejectWithValue('Не удалось обновить профиль')
+  }
+})
+
+export const fetchUserProfile = createAsyncThunk('collide/fetchUserProfile', async (userId, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const [user, stats, collections, items] = await Promise.all([
+      usersApi.get(userId),
+      usersApi.stats(userId).catch(() => null),
+      collectionsApi.list({ ownerId: userId }),
+      itemsApi.list({ ownerId: userId }),
+    ])
+    return {
+      user: normalizeUser(user),
+      stats: stats ? normalizeStats(stats) : null,
+      collections: collections.map((collection) => normalizeCollection(collection, currentUserId)),
+      items: items.map((item) => normalizeItem(item, currentUserId)),
+    }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось загрузить профиль')
+  }
+})
+
+export const fetchCollectionDetail = createAsyncThunk('collide/fetchCollectionDetail', async ({ id, itemSort } = {}, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const [detail, comments] = await Promise.all([
+      collectionsApi.detail(id, itemSort ? { itemSort } : {}),
+      collectionsApi.comments(id).catch(() => []),
+    ])
+    const collection = normalizeCollection({ ...detail, comments }, currentUserId)
+    return { collection, items: (detail.items || []).map((item) => normalizeItem(item, currentUserId)) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось загрузить коллекцию')
+  }
+})
+
+export const fetchItemDetail = createAsyncThunk('collide/fetchItemDetail', async (id, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await itemsApi.detail(id)
+    const item = normalizeItem({ ...detail.item, owner: detail.owner, comments: detail.comments || [] }, currentUserId)
+    const owner = detail.owner ? normalizeUser(detail.owner) : null
+    return { item, owner }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось загрузить предмет')
+  }
+})
+
+export const addCollection = createAsyncThunk('collide/addCollection', async (payload, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await collectionsApi.create(toCollectionRequest(payload))
+    const comments = await collectionsApi.comments(detail.id).catch(() => [])
+    return { collection: normalizeCollection({ ...detail, comments }, currentUserId), items: (detail.items || []).map((item) => normalizeItem(item, currentUserId)) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось создать коллекцию')
+  }
+})
+
+export const updateCollection = createAsyncThunk('collide/updateCollection', async (payload, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await collectionsApi.update(payload.id, toCollectionRequest(payload))
+    const comments = await collectionsApi.comments(detail.id).catch(() => [])
+    return { collection: normalizeCollection({ ...detail, comments }, currentUserId), items: (detail.items || []).map((item) => normalizeItem(item, currentUserId)) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось обновить коллекцию')
+  }
+})
+
+export const addItem = createAsyncThunk('collide/addItem', async (payload, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await itemsApi.create(toItemRequest(payload))
+    return { item: normalizeItem({ ...detail.item, owner: detail.owner, comments: detail.comments || [] }, currentUserId) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось создать предмет')
+  }
+})
+
+export const updateItem = createAsyncThunk('collide/updateItem', async (payload, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await itemsApi.update(payload.id, toItemRequest(payload))
+    return { item: normalizeItem({ ...detail.item, owner: detail.owner, comments: detail.comments || [] }, currentUserId) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось обновить предмет')
+  }
+})
+
+export const deleteItem = createAsyncThunk('collide/deleteItem', async (id, { rejectWithValue }) => {
+  try {
+    await itemsApi.delete(id)
+    return id
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось удалить предмет')
+  }
+})
+
+export const setItemStatus = createAsyncThunk('collide/setItemStatus', async ({ id, status }, { getState, rejectWithValue }) => {
+  try {
+    const existing = selectItemById(id)(getState())
+    const detail = await itemsApi.update(id, toItemRequest({ ...existing, status }))
+    return { item: normalizeItem({ ...detail.item, owner: detail.owner, comments: detail.comments || [] }, getState().collide.currentUserId) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось изменить статус')
+  }
+})
+
+export const removeItemFromCollection = createAsyncThunk('collide/removeItemFromCollection', async ({ collectionId, itemId }, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await collectionsApi.removeItem(collectionId, itemId)
+    return {
+      collection: normalizeCollection(detail, currentUserId),
+      items: (detail.items || []).map((item) => normalizeItem(item, currentUserId)),
+      itemId,
+    }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось убрать предмет из коллекции')
+  }
+})
+
+export const toggleItemLike = createAsyncThunk('collide/toggleItemLike', async (id, { rejectWithValue }) => {
+  try {
+    const result = await itemsApi.like(id)
+    return { id, liked: Boolean(result.liked) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось поставить лайк')
+  }
+})
+
+export const toggleFavoriteItem = createAsyncThunk('collide/toggleFavoriteItem', async (id, { rejectWithValue }) => {
+  try {
+    const result = await itemsApi.favorite(id)
+    return { id, favorite: Boolean(result.favorite) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось изменить избранное')
+  }
+})
+
+export const toggleFavoriteCollection = createAsyncThunk('collide/toggleFavoriteCollection', async (id, { rejectWithValue }) => {
+  try {
+    const result = await collectionsApi.favorite(id)
+    return { id, favorite: Boolean(result.favorite) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось изменить избранное')
+  }
+})
+
+export const toggleFollowUser = createAsyncThunk('collide/toggleFollowUser', async (userId, { getState, rejectWithValue }) => {
+  try {
+    const isFollowing = selectIsFollowingUser(userId)(getState())
+    const user = isFollowing ? await usersApi.unfollow(userId) : await usersApi.follow(userId)
+    const stats = await usersApi.stats(userId).catch(() => null)
+    return { user: normalizeUser(user), stats: stats ? normalizeStats(stats) : null }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось изменить подписку')
+  }
+})
+
+export const rateCollection = createAsyncThunk('collide/rateCollection', async ({ collectionId, value }, { getState, rejectWithValue }) => {
+  try {
+    const currentUserId = getState().collide.currentUserId
+    const detail = await collectionsApi.rate(collectionId, Number(value))
+    const comments = await collectionsApi.comments(collectionId).catch(() => [])
+    return { collection: normalizeCollection({ ...detail, comments }, currentUserId), items: (detail.items || []).map((item) => normalizeItem(item, currentUserId)) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось оценить коллекцию')
+  }
+})
+
+export const addItemComment = createAsyncThunk('collide/addItemComment', async ({ itemId, text }, { rejectWithValue }) => {
+  try {
+    const comment = await itemsApi.addComment(itemId, text)
+    return { itemId, comment: normalizeComment(comment) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось добавить комментарий')
+  }
+})
+
+export const addCollectionComment = createAsyncThunk('collide/addCollectionComment', async ({ collectionId, text }, { rejectWithValue }) => {
+  try {
+    const comment = await collectionsApi.addComment(collectionId, text)
+    return { collectionId, comment: normalizeComment(comment) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось добавить комментарий')
+  }
+})
+
+export const createOrGetChat = createAsyncThunk('collide/createOrGetChat', async (companionId, { rejectWithValue }) => {
+  try {
+    const dialog = await chatsApi.create(companionId)
+    const normalizedDialog = normalizeDialog(dialog)
+    try {
+      const messages = await chatsApi.messages(normalizedDialog.id)
+      normalizedDialog.messages = messages.map(normalizeMessage)
+    } catch {
+      normalizedDialog.messages = []
+    }
+    return normalizedDialog
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось начать чат')
+  }
+})
+
+export const fetchDialogMessages = createAsyncThunk('collide/fetchDialogMessages', async (dialogId, { rejectWithValue }) => {
+  try {
+    const messages = await chatsApi.messages(dialogId)
+    await chatsApi.markRead(dialogId).catch(() => null)
+    return { dialogId, messages: messages.map(normalizeMessage) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось загрузить сообщения')
+  }
+})
+
+export const sendMessage = createAsyncThunk('collide/sendMessage', async ({ dialogId, text }, { rejectWithValue }) => {
+  try {
+    const message = await chatsApi.send(dialogId, text)
+    return { dialogId, message: normalizeMessage(message) }
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || 'Не удалось отправить сообщение')
+  }
+})
+
+const collideSlice = createSlice({
+  name: 'collide',
+  initialState,
+  reducers: {
+    setSelectedCategory(state, action) { state.selectedCategory = action.payload },
+    setSearchQuery(state, action) { state.searchQuery = action.payload },
+    setProfileSearchQuery(state, action) { state.profileSearchQuery = action.payload },
+    setChatSearchQuery(state, action) { state.chatSearchQuery = action.payload },
+    setActiveDialog(state, action) {
+      state.activeDialogId = action.payload
+      const dialog = state.dialogs.find((item) => item.id === action.payload)
+      if (dialog) dialog.unread = 0
+    },
+    openAddItemModal(state) { state.isAddItemModalOpen = true },
+    closeAddItemModal(state) { state.isAddItemModalOpen = false },
+    openAddCollectionModal(state) { state.isAddCollectionModalOpen = true },
+    closeAddCollectionModal(state) { state.isAddCollectionModalOpen = false },
+    logoutUser(state) {
+      clearAuthSession()
+      state.auth = { token: null, user: null, status: 'idle', error: null }
+      state.currentUserId = null
+      state.users = []
+      state.dialogs = []
+      state.favorites = { collections: [], items: [] }
+      state.activeDialogId = null
+    },
+  },
+  extraReducers: (builder) => {
+    const setLoading = (state) => { state.apiStatus = 'loading'; state.apiError = null }
+    const setError = (state, action) => { state.apiStatus = 'failed'; state.apiError = action.payload || action.error?.message; state.usingFallback = false }
+
+    builder
+        .addCase(loadInitialData.pending, setLoading)
+        .addCase(loadInitialData.fulfilled, (state, action) => applyCommonData(state, action.payload))
+        .addCase(loadInitialData.rejected, setError)
+        .addCase(loginUser.pending, (state) => { state.auth.status = 'loading'; state.auth.error = null })
+        .addCase(loginUser.fulfilled, (state, action) => {
+          state.auth.status = 'succeeded'
+          state.auth.token = action.payload.token
+          state.auth.user = normalizeUser(action.payload.user || action.payload.currentUser)
+          applyCommonData(state, action.payload)
+        })
+        .addCase(loginUser.rejected, (state, action) => { state.auth.status = 'failed'; state.auth.error = action.payload || action.error?.message })
+        .addCase(registerUser.pending, (state) => { state.auth.status = 'loading'; state.auth.error = null })
+        .addCase(registerUser.fulfilled, (state, action) => {
+          state.auth.status = 'succeeded'
+          state.auth.token = action.payload.token
+          state.auth.user = normalizeUser(action.payload.user || action.payload.currentUser)
+          applyCommonData(state, action.payload)
+        })
+        .addCase(registerUser.rejected, (state, action) => { state.auth.status = 'failed'; state.auth.error = action.payload || action.error?.message })
+        .addCase(updateUserProfile.fulfilled, (state, action) => {
+          upsertById(state.users, action.payload)
+          if (state.auth.user?.id === action.payload.id) {
+            state.auth.user = action.payload
+          }
+        })
+        .addCase(fetchUserProfile.fulfilled, (state, action) => {
+          upsertById(state.users, action.payload.user)
+          if (action.payload.stats) state.profileStatsByUserId[action.payload.user.id] = action.payload.stats
+          action.payload.collections.forEach((collection) => upsertById(state.collections, collection))
+          action.payload.items.forEach((item) => upsertById(state.items, item))
+        })
+        .addCase(fetchCollectionDetail.fulfilled, (state, action) => {
+          upsertById(state.collections, action.payload.collection)
+          action.payload.items.forEach((item) => upsertById(state.items, item))
+        })
+        .addCase(fetchItemDetail.fulfilled, (state, action) => {
+          upsertById(state.items, action.payload.item)
+          if (action.payload.owner) upsertById(state.users, action.payload.owner)
+        })
+        .addCase(addCollection.fulfilled, (state, action) => {
+          upsertById(state.collections, action.payload.collection)
+          action.payload.items.forEach((item) => upsertById(state.items, item))
+          state.isAddCollectionModalOpen = false
+        })
+        .addCase(updateCollection.fulfilled, (state, action) => {
+          upsertById(state.collections, action.payload.collection)
+          action.payload.items.forEach((item) => upsertById(state.items, item))
+        })
+        .addCase(addItem.fulfilled, (state, action) => {
+          upsertById(state.items, action.payload.item)
+          state.isAddItemModalOpen = false
+        })
+        .addCase(updateItem.fulfilled, (state, action) => upsertById(state.items, action.payload.item))
+        .addCase(deleteItem.fulfilled, (state, action) => { state.items = removeById(state.items, action.payload) })
+        .addCase(setItemStatus.fulfilled, (state, action) => upsertById(state.items, action.payload.item))
+        .addCase(removeItemFromCollection.fulfilled, (state, action) => {
+          upsertById(state.collections, action.payload.collection)
+          action.payload.items.forEach((item) => upsertById(state.items, item))
+          const item = state.items.find((entry) => entry.id === action.payload.itemId)
+          if (item) { item.collectionId = ''; item.collectionTitle = 'Без коллекции' }
+        })
+        .addCase(toggleItemLike.fulfilled, (state, action) => {
+          const item = state.items.find((entry) => entry.id === action.payload.id)
+          if (!item) return
+          const liked = action.payload.liked
+          const hasLike = item.likedBy?.includes(state.currentUserId)
+          if (liked && !hasLike) { item.likedBy = [...(item.likedBy || []), state.currentUserId]; item.likes += 1 }
+          if (!liked && hasLike) { item.likedBy = item.likedBy.filter((id) => id !== state.currentUserId); item.likes = Math.max(0, item.likes - 1) }
+        })
+        .addCase(toggleFavoriteItem.fulfilled, (state, action) => {
+          const item = state.items.find((entry) => entry.id === action.payload.id)
+          if (!item) return
+          item.favoritedBy = action.payload.favorite ? [state.currentUserId] : []
+          item.isFavorite = action.payload.favorite
+        })
+        .addCase(toggleFavoriteCollection.fulfilled, (state, action) => {
+          const collection = state.collections.find((entry) => entry.id === action.payload.id)
+          if (!collection) return
+          collection.favoritedBy = action.payload.favorite ? [state.currentUserId] : []
+          collection.isFavorite = action.payload.favorite
+        })
+        .addCase(toggleFollowUser.fulfilled, (state, action) => {
+          upsertById(state.users, action.payload.user)
+          if (action.payload.stats) state.profileStatsByUserId[action.payload.user.id] = action.payload.stats
+        })
+        .addCase(rateCollection.fulfilled, (state, action) => {
+          upsertById(state.collections, action.payload.collection)
+          action.payload.items.forEach((item) => upsertById(state.items, item))
+        })
+        .addCase(addItemComment.fulfilled, (state, action) => {
+          const item = state.items.find((entry) => entry.id === action.payload.itemId)
+          if (item) { item.comments = [...(item.comments || []), action.payload.comment]; item.commentsCount = item.comments.length }
+        })
+        .addCase(addCollectionComment.fulfilled, (state, action) => {
+          const collection = state.collections.find((entry) => entry.id === action.payload.collectionId)
+          if (collection) { collection.comments = [...(collection.comments || []), action.payload.comment]; collection.commentsCount = collection.comments.length }
+        })
+        .addCase(createOrGetChat.fulfilled, (state, action) => {
+          const existingIndex = state.dialogs.findIndex((d) => d.id === action.payload.id)
+          if (existingIndex >= 0) {
+            state.dialogs[existingIndex] = { ...state.dialogs[existingIndex], ...action.payload }
+          } else {
+            state.dialogs.unshift(action.payload)
+          }
+          state.activeDialogId = action.payload.id
+        })
+        .addCase(fetchDialogMessages.fulfilled, (state, action) => {
+          const dialog = state.dialogs.find((entry) => entry.id === action.payload.dialogId)
+          if (dialog) { dialog.messages = action.payload.messages; dialog.unread = 0 }
+        })
+        .addCase(sendMessage.fulfilled, (state, action) => {
+          const dialog = state.dialogs.find((entry) => entry.id === action.payload.dialogId)
+          if (dialog) {
+            dialog.messages = [...(dialog.messages || []), action.payload.message]
+            dialog.preview = action.payload.message.text
+          }
+        })
+  },
+})
+
+function applyCommonData(state, payload) {
+  const currentUser = payload.currentUser || (payload.user ? normalizeUser(payload.user) : null)
+  state.apiStatus = 'succeeded'
+  state.apiError = null
+  state.usingFallback = false
+  state.currentUserId = currentUser?.id || null
+  state.users = currentUser ? [currentUser] : []
+  if (currentUser) state.auth.user = currentUser
+  state.categories = payload.categories?.length ? payload.categories : state.categories
+  state.collections = payload.collections || []
+  state.items = payload.items || []
+  state.dialogs = payload.dialogs || []
+  state.favorites = payload.favorites || { collections: [], items: [] }
+  if (payload.stats && currentUser) state.profileStatsByUserId[currentUser.id] = payload.stats
+  if (!state.activeDialogId && state.dialogs[0]) state.activeDialogId = state.dialogs[0].id
+  if (state.activeDialogId && !state.dialogs.some((dialog) => dialog.id === state.activeDialogId)) state.activeDialogId = state.dialogs[0]?.id || null
+}
+
 export const {
-    setSelectedCategory,
-    setSearchQuery,
-    setProfileSearchQuery,
-    setChatSearchQuery,
-    setActiveDialog,
-    openAddItemModal,
-    closeAddItemModal,
-    openAddCollectionModal,
-    closeAddCollectionModal,
-    addCollection,
-    updateCollection,
-    addItem,
-    updateItem,
-    removeItemFromCollection,
-    deleteItem,
-    setItemStatus,
-    toggleItemLike,
-    toggleFavoriteItem,
-    toggleFavoriteCollection,
-    toggleFollowUser,
-    rateCollection,
-    addItemComment,
-    addCollectionComment,
-    sendMessage,
+  setSelectedCategory,
+  setSearchQuery,
+  setProfileSearchQuery,
+  setChatSearchQuery,
+  setActiveDialog,
+  openAddItemModal,
+  closeAddItemModal,
+  openAddCollectionModal,
+  closeAddCollectionModal,
+  logoutUser,
 } = collideSlice.actions
 
 export const selectCategories = (state) => state.collide.categories
@@ -705,8 +806,8 @@ export const selectRawCollections = (state) => state.collide.collections
 export const selectRawItems = (state) => state.collide.items
 export const selectDialogs = (state) => state.collide.dialogs
 export const selectCurrentUserId = (state) => state.collide.currentUserId
-export const selectCurrentUser = (state) => state.collide.users.find((user) => user.id === state.collide.currentUserId)
-export const selectUserById = (id) => (state) => state.collide.users.find((user) => user.id === id)
+export const selectCurrentUser = (state) => state.collide.users.find((user) => String(user.id) === String(state.collide.currentUserId)) || state.collide.auth.user || null
+export const selectUserById = (id) => (state) => state.collide.users.find((user) => String(user.id) === String(id)) || null
 export const selectSelectedCategory = (state) => state.collide.selectedCategory
 export const selectSearchQuery = (state) => state.collide.searchQuery
 export const selectProfileSearchQuery = (state) => state.collide.profileSearchQuery
@@ -714,106 +815,161 @@ export const selectChatSearchQuery = (state) => state.collide.chatSearchQuery
 export const selectActiveDialogId = (state) => state.collide.activeDialogId
 export const selectAddItemModalOpen = (state) => state.collide.isAddItemModalOpen
 export const selectAddCollectionModalOpen = (state) => state.collide.isAddCollectionModalOpen
+export const selectAuth = (state) => state.collide.auth
+export const selectApiStatus = (state) => state.collide.apiStatus
+export const selectApiError = (state) => state.collide.apiError
+export const selectUsingFallback = (state) => state.collide.usingFallback
 
-export const selectCollections = createSelector(
-    [(state) => state],
-    (state) => state.collide.collections.map((collection) => enrichCollection(collection, state)),
+const getUser = (userId, state) => state.collide.users.find((user) => String(user.id) === String(userId))
+const getCollectionItems = (collectionId, state) => state.collide.items.filter((item) => String(item.collectionId) === String(collectionId))
+const getCollectionItemsCount = (collectionId, state) => getCollectionItems(collectionId, state).length
+const getCollectionAverageRating = (collection) => collection?.averageRating || 0
+const getUserFollowersCount = (userId, state) => {
+  const stats = state.collide.profileStatsByUserId[String(userId)]
+  if (stats) return stats.followersCount || 0
+  const user = getUser(userId, state)
+  return user?.followersBy?.length || 0
+}
+const getUserItemLikesCount = (userId, state) => {
+  const stats = state.collide.profileStatsByUserId[String(userId)]
+  if (stats) return stats.totalItemLikes || 0
+  return state.collide.items.filter((item) => String(item.ownerId) === String(userId)).reduce((sum, item) => sum + Number(item.likes || 0), 0)
+}
+const getUserCollectionsTotalValue = (userId, state) => {
+  const stats = state.collide.profileStatsByUserId[String(userId)]
+  if (stats) return stats.totalCollectionsValue || 0
+  const collectionIds = new Set(state.collide.collections.filter((collection) => String(collection.ownerId) === String(userId)).map((collection) => collection.id))
+  return state.collide.items.filter((item) => collectionIds.has(item.collectionId)).reduce((sum, item) => sum + Number(item.priceAmount || parsePriceAmount(item.price)), 0)
+}
+const getUserCollectionsAverageRating = (userId, state) => {
+  const stats = state.collide.profileStatsByUserId[String(userId)]
+  if (stats) return stats.collectionAverageRating || '—'
+  const ratings = state.collide.collections.filter((collection) => String(collection.ownerId) === String(userId)).map(getCollectionAverageRating).filter(Boolean)
+  if (!ratings.length) return '—'
+  return Number((ratings.reduce((sum, value) => sum + value, 0) / ratings.length).toFixed(1))
+}
+const getUserProfileMetrics = (userId, state) => {
+  const stats = state.collide.profileStatsByUserId[String(userId)]
+  if (stats) return stats
+  const value = getUserCollectionsTotalValue(userId, state)
+  return {
+    collectionAverageRating: getUserCollectionsAverageRating(userId, state),
+    totalItemLikes: getUserItemLikesCount(userId, state),
+    followersCount: getUserFollowersCount(userId, state),
+    totalCollectionsValue: value,
+    totalCollectionsValueLabel: formatMoney(value),
+  }
+}
+
+const enrichCollection = (collection, state) => {
+  const owner = getUser(collection.ownerId, state)
+  const itemsCount = collection.itemsCount ?? getCollectionItemsCount(collection.id, state)
+  return {
+    ...collection,
+    itemsCount,
+    ownerName: collection.ownerName || owner?.name || 'Пользователь',
+    ownerHandle: collection.ownerHandle || owner?.handle || '',
+    averageRating: getCollectionAverageRating(collection),
+    ratingsCount: collection.ratingsCount || 0,
+    commentsCount: collection.commentsCount || collection.comments?.length || 0,
+    isFavorite: Boolean(collection.favoritedBy?.includes(state.collide.currentUserId) || collection.isFavorite),
+  }
+}
+
+const enrichItem = (item, state) => {
+  const collection = state.collide.collections.find((entry) => String(entry.id) === String(item.collectionId))
+  const owner = getUser(item.ownerId, state)
+  return {
+    ...item,
+    collectionTitle: item.collectionTitle || collection?.title || 'Без коллекции',
+    collectionId: item.collectionId || '',
+    ownerName: item.ownerName || owner?.name || 'Пользователь',
+    ownerHandle: item.ownerHandle || owner?.handle || '',
+    commentsCount: item.commentsCount || item.comments?.length || 0,
+    isFavorite: Boolean(item.favoritedBy?.includes(state.collide.currentUserId) || item.isFavorite),
+  }
+}
+
+export const selectCollections = createSelector([(state) => state], (state) => state.collide.collections.map((collection) => enrichCollection(collection, state)))
+export const selectItems = createSelector([(state) => state], (state) => state.collide.items.map((item) => enrichItem(item, state)))
+export const selectCollectionById = (id) => createSelector(
+    [selectCollections],
+    (collectionsList) => collectionsList.find((entry) => String(entry.id) === String(id)) || null,
 )
-
-export const selectItems = createSelector(
-    [(state) => state],
-    (state) => state.collide.items.map((item) => enrichItem(item, state)),
+export const selectCollectionsByUser = (userId) => createSelector(
+    [selectCollections, selectProfileSearchQuery],
+    (collectionsList, profileSearchQuery) => {
+      if (!userId) return []
+      const query = normalize(profileSearchQuery)
+      return collectionsList
+          .filter((collection) => String(collection.ownerId) === String(userId))
+          .filter((collection) => !query || normalize(`${collection.title} ${collection.description}`).includes(query))
+    },
 )
-
-export const selectCollectionById = (id) => (state) => {
-    const collection = state.collide.collections.find((entry) => entry.id === id)
-    return collection ? enrichCollection(collection, state) : null
-}
-
-export const selectCollectionsByUser = (userId) => (state) => {
-    const query = normalize(state.collide.profileSearchQuery)
-    return state.collide.collections
-        .filter((collection) => collection.ownerId === userId)
-        .filter((collection) => !query || normalize(`${collection.title} ${collection.description}`).includes(query))
-        .map((collection) => enrichCollection(collection, state))
-}
-
-export const selectItemsByUser = (userId) => (state) => {
-    const query = normalize(state.collide.profileSearchQuery)
-    return state.collide.items
-        .filter((item) => item.ownerId === userId)
-        .filter((item) => !query || normalize(`${item.title} ${item.description} ${item.fullDescription} ${item.statusLabel}`).includes(query))
-        .map((item) => enrichItem(item, state))
-}
-
-export const selectItemsByCollection = (collectionId) => (state) => state.collide.items
-    .filter((item) => item.collectionId === collectionId)
-    .map((item) => enrichItem(item, state))
-
-export const selectCollectionItemsRaw = (collectionId) => (state) => getCollectionItems(collectionId, state)
-
-export const selectItemById = (id) => (state) => {
-    const item = state.collide.items.find((entry) => entry.id === id)
-    return item ? enrichItem(item, state) : null
-}
-
+export const selectItemsByUser = (userId) => createSelector(
+    [selectItems, selectProfileSearchQuery],
+    (itemsList, profileSearchQuery) => {
+      if (!userId) return []
+      const query = normalize(profileSearchQuery)
+      return itemsList
+          .filter((item) => String(item.ownerId) === String(userId))
+          .filter((item) => !query || normalize(`${item.title} ${item.description} ${item.fullDescription} ${item.statusLabel}`).includes(query))
+    },
+)
+export const selectItemsByCollection = (collectionId) => createSelector(
+    [selectItems],
+    (itemsList) => itemsList.filter((item) => String(item.collectionId) === String(collectionId)),
+)
+export const selectCollectionItemsRaw = (collectionId) => createSelector(
+    [selectRawItems],
+    (itemsList) => itemsList.filter((item) => String(item.collectionId) === String(collectionId)),
+)
+export const selectItemById = (id) => createSelector(
+    [selectItems],
+    (itemsList) => itemsList.find((entry) => String(entry.id) === String(id)) || null,
+)
 export const selectItemLikedByCurrentUser = (id) => (state) => {
-    const item = state.collide.items.find((entry) => entry.id === id)
-    return Boolean(item?.likedBy?.includes(state.collide.currentUserId))
+  const item = state.collide.items.find((entry) => String(entry.id) === String(id))
+  return Boolean(item?.likedBy?.includes(state.collide.currentUserId))
 }
-
 export const selectItemFavoritedByCurrentUser = (id) => (state) => {
-    const item = state.collide.items.find((entry) => entry.id === id)
-    return Boolean(item?.favoritedBy?.includes(state.collide.currentUserId))
+  const item = state.collide.items.find((entry) => String(entry.id) === String(id))
+  return Boolean(item?.favoritedBy?.includes(state.collide.currentUserId) || item?.isFavorite)
 }
-
 export const selectCollectionFavoritedByCurrentUser = (id) => (state) => {
-    const collection = state.collide.collections.find((entry) => entry.id === id)
-    return Boolean(collection?.favoritedBy?.includes(state.collide.currentUserId))
+  const collection = state.collide.collections.find((entry) => String(entry.id) === String(id))
+  return Boolean(collection?.favoritedBy?.includes(state.collide.currentUserId) || collection?.isFavorite)
 }
-
 export const selectUserCollectionAverageRating = (userId) => (state) => getUserCollectionsAverageRating(userId, state)
-
-export const selectUserProfileMetrics = (userId) => (state) => getUserProfileMetrics(userId, state)
+export const selectUserProfileMetrics = (userId) => createSelector([(state) => state], (state) => (userId ? getUserProfileMetrics(userId, state) : { collectionAverageRating: '—', totalItemLikes: 0, followersCount: 0, totalCollectionsValue: 0, totalCollectionsValueLabel: '0 ₽' }))
 export const selectIsFollowingUser = (userId) => (state) => {
-    const user = state.collide.users.find((entry) => entry.id === userId)
-    return Boolean(user?.followersBy?.includes(state.collide.currentUserId))
+  const user = state.collide.users.find((entry) => String(entry.id) === String(userId))
+  return Boolean(user?.following || user?.followersBy?.includes(state.collide.currentUserId))
 }
 export const selectUserFollowersCount = (userId) => (state) => getUserFollowersCount(userId, state)
-
-export const selectFavoritesByCurrentUser = (state) => {
-    const userId = state.collide.currentUserId
-    return {
-        collections: state.collide.collections
-            .filter((collection) => collection.favoritedBy?.includes(userId))
-            .map((collection) => enrichCollection(collection, state)),
-        items: state.collide.items
-            .filter((item) => item.favoritedBy?.includes(userId))
-            .map((item) => enrichItem(item, state)),
-    }
-}
-
-export const selectFilteredItems = createSelector(
-    [selectItems, selectSelectedCategory, selectSearchQuery],
-    (itemsList, selectedCategory, searchQuery) => {
-        const query = normalize(searchQuery)
-        return itemsList
-            .filter((item) => selectedCategory === 'all' || item.category === selectedCategory)
-            .filter((item) => !query || normalize(`${item.title} ${item.description} ${item.statusLabel} ${item.collectionTitle}`).includes(query))
+export const selectFavoritesByCurrentUser = createSelector(
+    [selectCollections, selectItems, (state) => state.collide.favorites, selectCurrentUserId],
+    (collectionsList, itemsList, favorites, userId) => {
+      const favoriteCollectionIds = new Set((favorites.collections || []).map((collection) => String(collection.id)))
+      const favoriteItemIds = new Set((favorites.items || []).map((item) => String(item.id)))
+      return {
+        collections: collectionsList.filter((collection) => collection.favoritedBy?.includes(userId) || collection.isFavorite || favoriteCollectionIds.has(String(collection.id))),
+        items: itemsList.filter((item) => item.favoritedBy?.includes(userId) || item.isFavorite || favoriteItemIds.has(String(item.id))),
+      }
     },
 )
-
-export const selectFilteredDialogs = createSelector(
-    [selectDialogs, selectChatSearchQuery],
-    (dialogsList, query) => {
-        const normalized = normalize(query)
-        return dialogsList.filter((dialog) => !normalized || normalize(dialog.name).includes(normalized))
-    },
-)
-
-export const selectActiveDialog = createSelector(
-    [selectDialogs, selectActiveDialogId],
-    (dialogsList, activeDialogId) => dialogsList.find((dialog) => dialog.id === activeDialogId) || null,
-)
+export const selectFilteredItems = createSelector([selectItems, selectSelectedCategory, selectSearchQuery], (itemsList, selectedCategory, searchQuery) => {
+  const query = normalize(searchQuery)
+  return itemsList
+      .filter((item) => selectedCategory === 'all' || item.category === selectedCategory)
+      .filter((item) => !query || normalize(`${item.title} ${item.description} ${item.statusLabel} ${item.collectionTitle}`).includes(query))
+})
+export const selectFilteredDialogs = createSelector([selectDialogs, selectChatSearchQuery], (dialogsList, query) => {
+  const normalized = normalize(query)
+  return dialogsList.filter((dialog) => !normalized || normalize(`${dialog.name} ${dialog.handle}`).includes(normalized))
+})
+export const selectActiveDialog = createSelector([selectDialogs, selectActiveDialogId], (dialogsList, activeDialogId) => dialogsList.find((dialog) => dialog.id === activeDialogId) || null)
 
 export default collideSlice.reducer
+
+export const selectIsAuthenticated = (state) => Boolean(state.collide.auth.token && state.collide.auth.user)

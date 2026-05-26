@@ -1255,6 +1255,8 @@ img {
 }
 
 .auth-card {
+  max-width: 560px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1266,6 +1268,10 @@ img {
 .not-found-page h1 {
   margin: 0;
   color: var(--brown-900);
+}
+
+.auth-card h1 {
+  text-align: center;
 }
 
 .auth-card p,
@@ -1854,4 +1860,64 @@ img {
   .stats-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* v6 backend integration */
+.auth-form {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
+.form-error {
+  margin: 0;
+  color: #fd3e3e;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.text-button,
+.nav-auth-link {
+  border: none;
+  background: transparent;
+  color: #6f4518;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.nav-auth-link {
+  text-decoration: none;
+  color: #ffedd8;
+}
+
+button:disabled,
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.nav-auth-link--panel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 5px;
+  color: #ffffff;
+  background: #fd3e3e;
+  text-decoration: none;
+}
+
+.profile-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-edit-card {
+  margin-top: 20px;
+  margin-bottom: 20px;
 }

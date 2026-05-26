@@ -1,21 +1,39 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { Link } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import Button from '../components/Button.jsx'
 import ChatSidebar from '../components/ChatSidebar.jsx'
-import { selectActiveDialog, selectCurrentUserId, sendMessage } from '../features/collide/collideSlice.js'
+import { fetchDialogMessages, selectActiveDialog, selectAuth, selectCurrentUserId, sendMessage } from '../features/collide/collideSlice.js'
 
 function ChatsPage() {
   const dispatch = useDispatch()
   const dialog = useSelector(selectActiveDialog)
   const currentUserId = useSelector(selectCurrentUserId)
+  const auth = useSelector(selectAuth)
   const [message, setMessage] = useState('')
 
-  const submitMessage = (event) => {
+  useEffect(() => {
+    if (dialog?.id) dispatch(fetchDialogMessages(dialog.id))
+  }, [dispatch, dialog?.id])
+
+  const submitMessage = async (event) => {
     event.preventDefault()
-    if (!dialog) return
-    dispatch(sendMessage({ dialogId: dialog.id, text: message }))
+    if (!dialog || !message.trim()) return
+    await dispatch(sendMessage({ dialogId: dialog.id, text: message })).unwrap().catch(() => null)
     setMessage('')
+  }
+
+  if (!auth.token) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <h1>Чаты</h1>
+          <p>Для просмотра личных сообщений нужно войти или зарегистрироваться.</p>
+          <Link className="nav-auth-link nav-auth-link--panel" to="/auth">Перейти ко входу</Link>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -26,7 +44,7 @@ function ChatsPage() {
           {!dialog && (
             <div className="chat-empty-state">
               <h1>Выберите чат для общения</h1>
-              <p>Список переписок находится слева. Пока backend не подключён, данные работают как демонстрационные.</p>
+              <p>Список переписок находится слева.</p>
             </div>
           )}
 

@@ -8,27 +8,29 @@ import tableGamesIcon from '../assets/icons/table_games_category_icon.svg'
 import watchesIcon from '../assets/icons/watches_category_icon.svg'
 
 const categoryIcons = {
-    books: booksIcon,
-    coins: coinsIcon,
-    figures: figuresIcon,
-    minerals: mineralsIcon,
-    vinyl: recordsIcon,
-    records: recordsIcon,
-    retro: retroTechIcon,
-    retroTech: retroTechIcon,
-    boardgames: tableGamesIcon,
-    tableGames: tableGamesIcon,
-    watches: watchesIcon,
+  books: booksIcon,
+  coins: coinsIcon,
+  figures: figuresIcon,
+  minerals: mineralsIcon,
+  vinyl: recordsIcon,
+  records: recordsIcon,
+  retro: retroTechIcon,
+  retro_tech: retroTechIcon,
+  retroTech: retroTechIcon,
+  boardgames: tableGamesIcon,
+  table_games: tableGamesIcon,
+  tableGames: tableGamesIcon,
+  watches: watchesIcon,
 }
 
-function CategoryIcon({categoryId, title = '', className = ''}) {
-    const icon = categoryIcons[categoryId]
+function CategoryIcon({ categoryId, title = '', className = '' }) {
+  const icon = categoryIcons[categoryId]
 
-    if (!icon) {
-        return <span className={`category-icon category-icon--fallback ${className}`.trim()}>⌘</span>
-    }
+  if (!icon) {
+    return <span className={`category-icon category-icon--fallback ${className}`.trim()}>⌘</span>
+  }
 
-    return <img className={`category-icon ${className}`.trim()} src={icon} alt={title}/>
+  return <img className={`category-icon ${className}`.trim()} src={icon} alt={title} />
 }
 
 export default CategoryIcon

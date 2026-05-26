@@ -7,10 +7,8 @@ import com.collide.backend.security.JwtService;
 import com.collide.backend.service.ChatService;
 import com.collide.backend.service.CurrentUserService;
 import jakarta.validation.Valid;
-
 import java.util.List;
 import java.util.UUID;
-
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -25,7 +23,8 @@ public class ChatWebSocketController {
     private final JwtService jwtService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public ChatWebSocketController(ChatService chatService, CurrentUserService currentUserService, JwtService jwtService, SimpMessagingTemplate messagingTemplate) {
+    public ChatWebSocketController(ChatService chatService, CurrentUserService currentUserService,
+                                   JwtService jwtService, SimpMessagingTemplate messagingTemplate) {
         this.chatService = chatService;
         this.currentUserService = currentUserService;
         this.jwtService = jwtService;
@@ -33,7 +32,9 @@ public class ChatWebSocketController {
     }
 
     @MessageMapping("/chats/{chatId}/send")
-    public void send(@DestinationVariable UUID chatId, @Valid @Payload MessageRequest request, SimpMessageHeaderAccessor headers) {
+    public void send(@DestinationVariable UUID chatId,
+                     @Valid @Payload MessageRequest request,
+                     SimpMessageHeaderAccessor headers) {
         UUID currentUserId = resolveUserId(headers);
         MessageDto message = chatService.send(chatId, currentUserId, request);
         messagingTemplate.convertAndSend("/topic/chats/" + chatId, message);

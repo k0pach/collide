@@ -36,8 +36,8 @@ public class UserController {
 
     @GetMapping("/{id}")
     public UserDto get(@PathVariable UUID id, @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
-        AppUser current = currentUserService.currentUser(userId);
-        return userService.getUser(id, current.getId());
+        UUID currentUserId = currentUserService.currentUserId(userId).orElse(null);
+        return userService.getUser(id, currentUserId);
     }
 
     @GetMapping("/{id}/stats")

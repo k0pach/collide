@@ -1,9 +1,7 @@
 package com.collide.backend.config;
 
 import com.collide.backend.security.JwtAuthenticationFilter;
-
 import java.util.List;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,23 +24,28 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final boolean requireAuth;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, @Value("${collide.security.require-auth:false}") boolean requireAuth) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          @Value("${collide.security.require-auth:false}") boolean requireAuth) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.requireAuth = requireAuth;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable()).cors(Customizer.withDefaults()).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class).authorizeHttpRequests(auth -> {
-            auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
-            auth.requestMatchers("/api/auth/**", "/api/health", "/actuator/**", "/uploads/**", "/ws/**").permitAll();
-            if (requireAuth) {
-                auth.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/collections/**", "/api/items/**", "/api/users/**").permitAll();
-                auth.anyRequest().authenticated();
-            } else {
-                auth.anyRequest().permitAll();
-            }
-        });
+        http.csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    auth.requestMatchers("/api/auth/**", "/api/health", "/actuator/**", "/uploads/**", "/ws/**").permitAll();
+                    if (requireAuth) {
+                        auth.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/collections/**", "/api/items/**", "/api/users/**").permitAll();
+                        auth.anyRequest().authenticated();
+                    } else {
+                        auth.anyRequest().permitAll();
+                    }
+                });
         return http.build();
     }
 

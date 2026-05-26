@@ -11,10 +11,15 @@ export const categoryIcons = {
   figures: figuresIcon,
   coins: coinsIcon,
   vinyl: recordsIcon,
+  records: recordsIcon,
   books: booksIcon,
   watches: watchesIcon,
   retro: retroTechIcon,
+  retro_tech: retroTechIcon,
+  retroTech: retroTechIcon,
   boardgames: tableGamesIcon,
+  table_games: tableGamesIcon,
+  tableGames: tableGamesIcon,
   minerals: mineralsIcon,
 }
 

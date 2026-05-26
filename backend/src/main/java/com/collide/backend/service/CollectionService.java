@@ -11,12 +11,10 @@ import com.collide.backend.model.enums.Visibility;
 import com.collide.backend.model.id.CollectionRatingId;
 import com.collide.backend.model.id.FavoriteCollectionId;
 import com.collide.backend.repository.*;
-
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +32,11 @@ public class CollectionService {
     private final UserService userService;
     private final DtoMapper mapper;
 
-    public CollectionService(CollectionRepository collectionRepository, ItemRepository itemRepository, CollectionCommentRepository commentRepository, CollectionRatingRepository ratingRepository, FavoriteCollectionRepository favoriteRepository, ItemLikeRepository itemLikeRepository, ItemCommentRepository itemCommentRepository, FavoriteItemRepository favoriteItemRepository, CategoryService categoryService, UserService userService, DtoMapper mapper) {
+    public CollectionService(CollectionRepository collectionRepository, ItemRepository itemRepository,
+                             CollectionCommentRepository commentRepository, CollectionRatingRepository ratingRepository,
+                             FavoriteCollectionRepository favoriteRepository, ItemLikeRepository itemLikeRepository,
+                             ItemCommentRepository itemCommentRepository, FavoriteItemRepository favoriteItemRepository,
+                             CategoryService categoryService, UserService userService, DtoMapper mapper) {
         this.collectionRepository = collectionRepository;
         this.itemRepository = itemRepository;
         this.commentRepository = commentRepository;
@@ -52,16 +54,23 @@ public class CollectionService {
     public List<CollectionSummaryDto> list(UUID ownerId, String category, String query, String sort, UUID currentUserId) {
         String normalizedCategory = categoryOrNull(category);
         String normalizedQuery = blankToNull(query);
-        List<CollectionEntity> collections = collectionRepository.findAll().stream().filter(collection -> ownerId == null || collection.getOwner().getId().equals(ownerId)).filter(collection -> normalizedCategory == null || collection.getCategory() != null && collection.getCategory().getSlug().equals(normalizedCategory)).filter(collection -> normalizedQuery == null || collection.getTitle().toLowerCase().contains(normalizedQuery.toLowerCase())).toList();
+        List<CollectionEntity> collections = collectionRepository.findAll().stream()
+                .filter(collection -> ownerId == null || collection.getOwner().getId().equals(ownerId))
+                .filter(collection -> normalizedCategory == null || collection.getCategory() != null && collection.getCategory().getSlug().equals(normalizedCategory))
+                .filter(collection -> normalizedQuery == null || collection.getTitle().toLowerCase().contains(normalizedQuery.toLowerCase()))
+                .toList();
         return sortCollections(collections, sort).stream().map(this::summary).toList();
     }
 
     @Transactional(readOnly = true)
     public CollectionDetailDto detail(UUID id, UUID currentUserId, String itemSort) {
         CollectionEntity collection = find(id);
-        List<ItemSummaryDto> items = sortItems(itemRepository.findByCollectionId(id), itemSort).stream().map(item -> itemSummary(item, currentUserId)).toList();
+        List<ItemSummaryDto> items = sortItems(itemRepository.findByCollectionId(id), itemSort).stream()
+                .map(item -> itemSummary(item, currentUserId))
+                .toList();
         boolean favorite = currentUserId != null && favoriteRepository.existsById(new FavoriteCollectionId(currentUserId, id));
-        return mapper.collectionDetail(collection, items.size(), totalValue(collection.getId()), averageRating(id), ratingRepository.countByIdCollectionId(id), commentRepository.countByCollectionId(id), favorite, items);
+        return mapper.collectionDetail(collection, items.size(), totalValue(collection.getId()), averageRating(id),
+                ratingRepository.countByIdCollectionId(id), commentRepository.countByCollectionId(id), favorite, items);
     }
 
     @Transactional
@@ -99,8 +108,7 @@ public class CollectionService {
         if (item.getCollection() == null || !item.getCollection().getId().equals(collectionId)) {
             throw new NotFoundException("Предмет не найден в этой коллекции");
         }
-        if (!item.getOwner().getId().equals(currentUserId))
-            throw new ForbiddenException("Нельзя изменять чужой предмет");
+        if (!item.getOwner().getId().equals(currentUserId)) throw new ForbiddenException("Нельзя изменять чужой предмет");
         item.setCollection(null);
         itemRepository.save(item);
         return detail(collectionId, currentUserId, null);
@@ -157,15 +165,20 @@ public class CollectionService {
     }
 
     public CollectionSummaryDto summary(CollectionEntity collection) {
-        return mapper.collectionSummary(collection, itemRepository.findByCollectionId(collection.getId()).size(), totalValue(collection.getId()), commentRepository.countByCollectionId(collection.getId()));
+        return mapper.collectionSummary(collection, itemRepository.findByCollectionId(collection.getId()).size(),
+                totalValue(collection.getId()), commentRepository.countByCollectionId(collection.getId()));
     }
 
     public ItemSummaryDto itemSummary(Item item, UUID currentUserId) {
-        return mapper.itemSummary(item, itemLikeRepository.countByIdItemId(item.getId()), itemCommentRepository.countByItemId(item.getId()), currentUserId != null && itemLikeRepository.existsById(new com.collide.backend.model.id.ItemLikeId(item.getId(), currentUserId)), currentUserId != null && favoriteItemRepository.existsById(new com.collide.backend.model.id.FavoriteItemId(currentUserId, item.getId())));
+        return mapper.itemSummary(item, itemLikeRepository.countByIdItemId(item.getId()),
+                itemCommentRepository.countByItemId(item.getId()),
+                currentUserId != null && itemLikeRepository.existsById(new com.collide.backend.model.id.ItemLikeId(item.getId(), currentUserId)),
+                currentUserId != null && favoriteItemRepository.existsById(new com.collide.backend.model.id.FavoriteItemId(currentUserId, item.getId())));
     }
 
     public BigDecimal totalValue(UUID collectionId) {
-        return itemRepository.findByCollectionId(collectionId).stream().map(Item::getPriceAmount).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return itemRepository.findByCollectionId(collectionId).stream()
+                .map(Item::getPriceAmount).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public double averageRating(UUID collectionId) {
@@ -189,10 +202,8 @@ public class CollectionService {
     private List<CollectionEntity> sortCollections(List<CollectionEntity> list, String sort) {
         Comparator<CollectionEntity> comparator = switch (sort == null ? "new" : sort) {
             case "alphabet", "title" -> Comparator.comparing(c -> c.getTitle().toLowerCase());
-            case "popular" ->
-                    Comparator.comparing((CollectionEntity c) -> itemRepository.findByCollectionId(c.getId()).size()).reversed();
-            default ->
-                    Comparator.comparing(CollectionEntity::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed();
+            case "popular" -> Comparator.comparing((CollectionEntity c) -> itemRepository.findByCollectionId(c.getId()).size()).reversed();
+            default -> Comparator.comparing(CollectionEntity::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed();
         };
         return list.stream().sorted(comparator).toList();
     }
@@ -200,18 +211,12 @@ public class CollectionService {
     private List<Item> sortItems(List<Item> list, String sort) {
         Comparator<Item> comparator = switch (sort == null ? "alphabet" : sort) {
             case "likes" -> Comparator.comparing((Item i) -> itemLikeRepository.countByIdItemId(i.getId())).reversed();
-            case "price" ->
-                    Comparator.comparing(i -> i.getPriceAmount() == null ? BigDecimal.ZERO : i.getPriceAmount(), Comparator.reverseOrder());
+            case "price" -> Comparator.comparing(i -> i.getPriceAmount() == null ? BigDecimal.ZERO : i.getPriceAmount(), Comparator.reverseOrder());
             default -> Comparator.comparing(i -> i.getTitle().toLowerCase());
         };
         return list.stream().sorted(comparator).toList();
     }
 
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private String categoryOrNull(String value) {
-        return value == null || value.isBlank() || "all".equals(value) ? null : value;
-    }
+    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private String categoryOrNull(String value) { return value == null || value.isBlank() || "all".equals(value) ? null : value; }
 }

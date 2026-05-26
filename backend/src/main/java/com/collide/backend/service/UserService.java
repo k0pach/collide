@@ -10,11 +10,9 @@ import com.collide.backend.model.entity.Item;
 import com.collide.backend.model.entity.UserFollow;
 import com.collide.backend.model.id.UserFollowId;
 import com.collide.backend.repository.*;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +26,10 @@ public class UserService {
     private final CollectionRatingRepository ratingRepository;
     private final DtoMapper mapper;
 
-    public UserService(UserRepository userRepository, UserFollowRepository followRepository, CollectionRepository collectionRepository, ItemRepository itemRepository, ItemLikeRepository itemLikeRepository, CollectionRatingRepository ratingRepository, DtoMapper mapper) {
+    public UserService(UserRepository userRepository, UserFollowRepository followRepository,
+                       CollectionRepository collectionRepository, ItemRepository itemRepository,
+                       ItemLikeRepository itemLikeRepository, CollectionRatingRepository ratingRepository,
+                       DtoMapper mapper) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.collectionRepository = collectionRepository;
@@ -52,17 +53,23 @@ public class UserService {
         long itemsCount = itemRepository.countByOwnerId(userId);
         long followers = followRepository.countByIdFollowingId(userId);
         long following = followRepository.countByIdFollowerId(userId);
-        long itemLikes = itemRepository.findByOwnerId(userId).stream().mapToLong(item -> itemLikeRepository.countByIdItemId(item.getId())).sum();
-        BigDecimal totalValue = itemRepository.findByOwnerId(userId).stream().filter(item -> item.getCollection() != null).map(Item::getPriceAmount).filter(v -> v != null).reduce(BigDecimal.ZERO, BigDecimal::add);
+        long itemLikes = itemRepository.findByOwnerId(userId).stream()
+                .mapToLong(item -> itemLikeRepository.countByIdItemId(item.getId()))
+                .sum();
+        BigDecimal totalValue = itemRepository.findByOwnerId(userId).stream()
+                .filter(item -> item.getCollection() != null)
+                .map(Item::getPriceAmount)
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         double avgRating = ratingRepository.averageForUserCollections(userId).orElse(0.0);
-        return new ProfileStatsDto(collectionsCount, itemsCount, itemLikes, followers, following, totalValue, mapper.money(totalValue), mapper.round(avgRating));
+        return new ProfileStatsDto(collectionsCount, itemsCount, itemLikes, followers, following, totalValue,
+                mapper.money(totalValue), mapper.round(avgRating));
     }
 
     @Transactional
     public UserDto updateMe(UUID currentUserId, UserUpdateRequest request) {
         AppUser user = find(currentUserId);
-        if (request.displayName() != null && !request.displayName().isBlank())
-            user.setDisplayName(request.displayName().trim());
+        if (request.displayName() != null && !request.displayName().isBlank()) user.setDisplayName(request.displayName().trim());
         if (request.bio() != null) user.setBio(request.bio().trim());
         if (request.avatarUrl() != null) user.setAvatarUrl(request.avatarUrl().trim());
         if (request.statusMessage() != null) user.setStatusMessage(request.statusMessage().trim());

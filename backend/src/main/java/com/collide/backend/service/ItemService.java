@@ -10,14 +10,12 @@ import com.collide.backend.model.enums.Visibility;
 import com.collide.backend.model.id.FavoriteItemId;
 import com.collide.backend.model.id.ItemLikeId;
 import com.collide.backend.repository.*;
-
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +30,10 @@ public class ItemService {
     private final UserService userService;
     private final DtoMapper mapper;
 
-    public ItemService(ItemRepository itemRepository, ItemLikeRepository likeRepository, ItemCommentRepository commentRepository, FavoriteItemRepository favoriteRepository, CollectionRepository collectionRepository, CategoryService categoryService, UserService userService, DtoMapper mapper) {
+    public ItemService(ItemRepository itemRepository, ItemLikeRepository likeRepository,
+                       ItemCommentRepository commentRepository, FavoriteItemRepository favoriteRepository,
+                       CollectionRepository collectionRepository, CategoryService categoryService,
+                       UserService userService, DtoMapper mapper) {
         this.itemRepository = itemRepository;
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
@@ -47,14 +48,20 @@ public class ItemService {
     public List<ItemSummaryDto> list(UUID ownerId, UUID collectionId, String category, String query, String sort, UUID currentUserId) {
         String normalizedCategory = categoryOrNull(category);
         String normalizedQuery = blankToNull(query);
-        List<Item> items = itemRepository.findAll().stream().filter(item -> ownerId == null || item.getOwner().getId().equals(ownerId)).filter(item -> collectionId == null || item.getCollection() != null && item.getCollection().getId().equals(collectionId)).filter(item -> normalizedCategory == null || item.getCategory() != null && item.getCategory().getSlug().equals(normalizedCategory)).filter(item -> normalizedQuery == null || item.getTitle().toLowerCase().contains(normalizedQuery.toLowerCase())).toList();
+        List<Item> items = itemRepository.findAll().stream()
+                .filter(item -> ownerId == null || item.getOwner().getId().equals(ownerId))
+                .filter(item -> collectionId == null || item.getCollection() != null && item.getCollection().getId().equals(collectionId))
+                .filter(item -> normalizedCategory == null || item.getCategory() != null && item.getCategory().getSlug().equals(normalizedCategory))
+                .filter(item -> normalizedQuery == null || item.getTitle().toLowerCase().contains(normalizedQuery.toLowerCase()))
+                .toList();
         return sort(items, sort).stream().map(item -> summary(item, currentUserId)).toList();
     }
 
     @Transactional(readOnly = true)
     public ItemDetailDto detail(UUID id, UUID currentUserId) {
         Item item = find(id);
-        return new ItemDetailDto(summary(item, currentUserId), item.getOwner().getId(), mapper.user(item.getOwner(), false), comments(id), item.getUpdatedAt());
+        return new ItemDetailDto(summary(item, currentUserId), item.getOwner().getId(), mapper.user(item.getOwner(), false),
+                comments(id), item.getUpdatedAt());
     }
 
     @Transactional
@@ -137,7 +144,9 @@ public class ItemService {
     }
 
     public ItemSummaryDto summary(Item item, UUID currentUserId) {
-        return mapper.itemSummary(item, likeRepository.countByIdItemId(item.getId()), commentRepository.countByItemId(item.getId()), currentUserId != null && likeRepository.existsById(new ItemLikeId(item.getId(), currentUserId)), currentUserId != null && favoriteRepository.existsById(new FavoriteItemId(currentUserId, item.getId())));
+        return mapper.itemSummary(item, likeRepository.countByIdItemId(item.getId()), commentRepository.countByItemId(item.getId()),
+                currentUserId != null && likeRepository.existsById(new ItemLikeId(item.getId(), currentUserId)),
+                currentUserId != null && favoriteRepository.existsById(new FavoriteItemId(currentUserId, item.getId())));
     }
 
     private void apply(Item item, ItemRequest request, UUID ownerId) {
@@ -155,7 +164,8 @@ public class ItemService {
         if (request.collectionId() == null) {
             item.setCollection(null);
         } else {
-            CollectionEntity collection = collectionRepository.findById(request.collectionId()).orElseThrow(() -> new NotFoundException("Коллекция для предмета не найдена"));
+            CollectionEntity collection = collectionRepository.findById(request.collectionId())
+                    .orElseThrow(() -> new NotFoundException("Коллекция для предмета не найдена"));
             if (!collection.getOwner().getId().equals(ownerId)) {
                 throw new ForbiddenException("Нельзя добавить предмет в чужую коллекцию");
             }
@@ -172,12 +182,9 @@ public class ItemService {
     private List<Item> sort(List<Item> list, String sort) {
         Comparator<Item> comparator = switch (sort == null ? "new" : sort) {
             case "alphabet", "title" -> Comparator.comparing(i -> i.getTitle().toLowerCase());
-            case "likes", "popular" ->
-                    Comparator.comparing((Item i) -> likeRepository.countByIdItemId(i.getId())).reversed();
-            case "price" ->
-                    Comparator.comparing(i -> i.getPriceAmount() == null ? BigDecimal.ZERO : i.getPriceAmount(), Comparator.reverseOrder());
-            default ->
-                    Comparator.comparing(Item::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed();
+            case "likes", "popular" -> Comparator.comparing((Item i) -> likeRepository.countByIdItemId(i.getId())).reversed();
+            case "price" -> Comparator.comparing(i -> i.getPriceAmount() == null ? BigDecimal.ZERO : i.getPriceAmount(), Comparator.reverseOrder());
+            default -> Comparator.comparing(Item::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed();
         };
         return list.stream().sorted(comparator).toList();
     }
@@ -196,11 +203,6 @@ public class ItemService {
         return null;
     }
 
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private String categoryOrNull(String value) {
-        return value == null || value.isBlank() || "all".equals(value) ? null : value;
-    }
+    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private String categoryOrNull(String value) { return value == null || value.isBlank() || "all".equals(value) ? null : value; }
 }

@@ -8,8 +8,10 @@ import ItemCard from '../components/ItemCard.jsx'
 import RatingModal from '../components/RatingModal.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import SortControls from '../components/SortControls.jsx'
+import { uploadImageFile } from '../services/api.js'
 import {
   addCollectionComment,
+  fetchCollectionDetail,
   rateCollection,
   removeItemFromCollection,
   selectCategories,
@@ -53,12 +55,19 @@ function CollectionPage() {
   const currentUser = useSelector(selectCurrentUser)
   const categories = useSelector(selectCategories).filter((category) => category.id !== 'all')
   const [editForm, setEditForm] = useState(null)
+  const [editImageFile, setEditImageFile] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [isRatingOpen, setIsRatingOpen] = useState(false)
   const [comment, setComment] = useState('')
   const [shareStatus, setShareStatus] = useState('')
+  const [error, setError] = useState('')
   const [sortType, setSortType] = useState('likes')
-  const canEdit = collection?.ownerId === currentUser.id
+  const canEdit = currentUser && collection?.ownerId === currentUser.id
+
+  useEffect(() => {
+    if (collectionId) dispatch(fetchCollectionDetail({ id: collectionId, itemSort: sortType }))
+  }, [dispatch, collectionId, sortType])
 
   useEffect(() => {
     if (!collection) return
@@ -69,18 +78,19 @@ function CollectionPage() {
       coverImageUrl: collection.coverImageUrl || '',
       placeholderColor: collection.placeholderColor || '#FB8500',
     })
+    setEditImageFile(null)
     setIsEditing(false)
   }, [collection?.id])
 
   const sortedItems = useMemo(() => sortItems(items, sortType), [items, sortType])
-  const totalPrice = useMemo(() => items.reduce((sum, item) => sum + parsePrice(item.price), 0), [items])
+  const totalPrice = useMemo(() => Number(collection?.totalValue || 0) || items.reduce((sum, item) => sum + parsePrice(item.price), 0), [collection?.totalValue, items])
 
   if (!collection) {
     return (
       <main className="collection-page">
         <section className="item-detail item-detail--missing">
           <h1>Коллекция не найдена</h1>
-          <p>Возможно, ссылка устарела или коллекция была удалена.</p>
+          <p>Возможно, ссылка устарела, коллекция была удалена или backend ещё загружает данные.</p>
           <Link to="/">Вернуться на главную</Link>
         </section>
       </main>
@@ -92,30 +102,55 @@ function CollectionPage() {
   const handleCoverChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    setEditImageFile(file)
     const objectUrl = URL.createObjectURL(file)
     updateEditField('coverImageUrl', objectUrl)
   }
 
-  const submitEditForm = (event) => {
+  const submitEditForm = async (event) => {
     event.preventDefault()
-    dispatch(updateCollection({ id: collection.id, ...editForm }))
-    setIsEditing(false)
+    setIsSaving(true)
+    setError('')
+    try {
+      let coverImageUrl = editForm.coverImageUrl
+      if (editImageFile) {
+        try {
+          const upload = await uploadImageFile(editImageFile)
+          coverImageUrl = upload?.url || coverImageUrl
+        } catch {
+          // оставляем выбранное изображение до повторной попытки
+        }
+      }
+      await dispatch(updateCollection({ id: collection.id, ...editForm, coverImageUrl })).unwrap()
+      setIsEditing(false)
+    } catch (requestError) {
+      setError(String(requestError || 'Не удалось сохранить коллекцию'))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const submitComment = (event) => {
+  const submitComment = async (event) => {
     event.preventDefault()
-    dispatch(addCollectionComment({ collectionId: collection.id, text: comment }))
-    setComment('')
+    if (!comment.trim()) return
+    try {
+      await dispatch(addCollectionComment({ collectionId: collection.id, text: comment })).unwrap()
+      setComment('')
+    } catch (requestError) {
+      setError(String(requestError || 'Не удалось добавить комментарий'))
+    }
   }
 
-  const submitRating = (value) => {
-    dispatch(rateCollection({ collectionId: collection.id, value }))
-    setIsRatingOpen(false)
+  const submitRating = async (value) => {
+    try {
+      await dispatch(rateCollection({ collectionId: collection.id, value })).unwrap()
+      setIsRatingOpen(false)
+    } catch (requestError) {
+      setError(String(requestError || 'Не удалось оценить коллекцию'))
+    }
   }
 
-  const scrollToComments = () => {
-    commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const scrollToComments = () => commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   const shareCollection = async () => {
     const link = window.location.href
@@ -131,6 +166,9 @@ function CollectionPage() {
     }
   }
 
+  const removeItem = (itemId) => dispatch(removeItemFromCollection({ collectionId: collection.id, itemId }))
+  const commentsCount = collection.comments?.length || collection.commentsCount || 0
+
   return (
     <main className="collection-page">
       <section className="item-detail item-detail--collection">
@@ -145,13 +183,13 @@ function CollectionPage() {
           </div>
           <h1>{collection.title}</h1>
           <p className="item-detail__short">{collection.description}</p>
-          <p className="item-detail__price">Общая стоимость: {formatPrice(totalPrice)}</p>
+          <p className="item-detail__price">Общая стоимость: {collection.totalValueLabel || formatPrice(totalPrice)}</p>
 
           <div className="item-detail__owner">
             <Avatar tone="orange" size="sm" label={collection.ownerName} />
             <div>
               <span>Владелец</span>
-              <Link to={collection.ownerId === currentUser.id ? '/profile/collections' : `/users/${collection.ownerId}/collections`}>
+              <Link to={currentUser && collection.ownerId === currentUser.id ? '/profile/collections' : `/users/${collection.ownerId}/collections`}>
                 {collection.ownerName} {collection.ownerHandle}
               </Link>
             </div>
@@ -162,11 +200,12 @@ function CollectionPage() {
             <Button variant={isFavorite ? 'secondary' : 'ghost'} onClick={() => dispatch(toggleFavoriteCollection(collection.id))}>
               {isFavorite ? 'В избранном' : 'В избранное'}
             </Button>
-            <Button variant="ghost" onClick={scrollToComments}>Комментарии · {collection.comments?.length || 0}</Button>
+            <Button variant="ghost" onClick={scrollToComments}>Комментарии · {commentsCount}</Button>
             <Button variant="ghost" onClick={shareCollection}>Поделиться</Button>
             {canEdit && <Button variant="secondary" onClick={() => setIsEditing((value) => !value)}>{isEditing ? 'Отменить редактирование' : 'Редактировать'}</Button>}
           </div>
           {shareStatus && <p className="share-status">{shareStatus}</p>}
+          {error && <p className="form-error">{error}</p>}
         </div>
       </section>
 
@@ -207,7 +246,7 @@ function CollectionPage() {
             </div>
 
             <div className="form-grid__actions">
-              <Button variant="primary" type="submit">Сохранить коллекцию</Button>
+              <Button variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Сохранение...' : 'Сохранить коллекцию'}</Button>
             </div>
           </form>
         </section>
@@ -223,7 +262,7 @@ function CollectionPage() {
               key={item.id}
               item={item}
               readonly={!canEdit}
-              onRemoveFromCollection={canEdit ? (itemId) => dispatch(removeItemFromCollection(itemId)) : undefined}
+              onRemoveFromCollection={canEdit ? removeItem : undefined}
             />
           ))}
         </div>
@@ -231,20 +270,15 @@ function CollectionPage() {
       </section>
 
       <section className="comments-card" ref={commentsRef} id="collection-comments">
-        <h2>Комментарии · {collection.comments?.length || 0}</h2>
+        <h2>Комментарии · {commentsCount}</h2>
         <form className="comment-form" onSubmit={submitComment}>
-          <textarea
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-            rows="4"
-            placeholder="Оставьте комментарий к коллекции"
-          />
+          <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows="4" placeholder="Оставьте комментарий к коллекции" />
           <Button variant="primary" type="submit">Отправить комментарий</Button>
         </form>
 
         <div className="comments-list">
-          {collection.comments.length === 0 && <p className="empty-note">Комментариев пока нет. Станьте первым.</p>}
-          {collection.comments.map((entry) => (
+          {(collection.comments || []).length === 0 && <p className="empty-note">Комментариев пока нет. Станьте первым.</p>}
+          {(collection.comments || []).map((entry) => (
             <article className="comment" key={entry.id}>
               <Avatar tone="cream" size="xs" label={entry.authorName} />
               <div>

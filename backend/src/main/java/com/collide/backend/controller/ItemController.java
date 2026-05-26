@@ -31,14 +31,14 @@ public class ItemController {
                                      @RequestParam(required = false) String q,
                                      @RequestParam(required = false) String sort,
                                      @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
-        AppUser current = currentUserService.currentUser(userId);
-        return itemService.list(ownerId, collectionId, category, q, sort, current.getId());
+        UUID currentUserId = currentUserService.currentUserId(userId).orElse(null);
+        return itemService.list(ownerId, collectionId, category, q, sort, currentUserId);
     }
 
     @GetMapping("/{id}")
     public ItemDetailDto detail(@PathVariable UUID id, @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
-        AppUser current = currentUserService.currentUser(userId);
-        return itemService.detail(id, current.getId());
+        UUID currentUserId = currentUserService.currentUserId(userId).orElse(null);
+        return itemService.detail(id, currentUserId);
     }
 
     @PostMapping

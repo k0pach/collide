@@ -1,12 +1,12 @@
 package com.collide.backend.service;
 
 import com.collide.backend.exception.NotFoundException;
+import com.collide.backend.exception.UnauthorizedException;
 import com.collide.backend.model.entity.AppUser;
 import com.collide.backend.repository.UserRepository;
 import com.collide.backend.security.AppUserPrincipal;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -14,24 +14,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class CurrentUserService {
     private final UserRepository userRepository;
-    private final String defaultUsername;
 
-    public CurrentUserService(UserRepository userRepository, @Value("${collide.dev.default-user:jesseyo}") String defaultUsername) {
+    public CurrentUserService(UserRepository userRepository) {
         this.userRepository = userRepository;
-        this.defaultUsername = defaultUsername;
     }
 
     public AppUser currentUser(UUID headerUserId) {
+        UUID currentId = currentUserId(headerUserId)
+                .orElseThrow(() -> new UnauthorizedException("Необходимо войти в аккаунт"));
+        return find(currentId, "Пользователь не найден");
+    }
+
+    public Optional<UUID> currentUserId(UUID headerUserId) {
         Optional<UUID> authenticatedUserId = authenticatedUserId();
-        if (authenticatedUserId.isPresent()) {
-            return find(authenticatedUserId.get(), "Пользователь из JWT не найден");
-        }
-        if (headerUserId != null) {
-            return find(headerUserId, "Пользователь из X-User-Id не найден");
-        }
-        return userRepository.findByUsernameIgnoreCase(defaultUsername)
-                .or(() -> userRepository.findAll().stream().findFirst())
-                .orElseThrow(() -> new NotFoundException("В базе нет пользователей. Зарегистрируйтесь или включите демо-инициализацию."));
+        if (authenticatedUserId.isPresent()) return authenticatedUserId;
+        return Optional.ofNullable(headerUserId);
     }
 
     public Optional<UUID> authenticatedUserId() {
